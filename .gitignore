@@ -1,0 +1,44 @@
+# --- Credentials (never commit) ---
+.env
+.env.*
+!.env.example
+
+# --- Data ---
+# Raw HIS extracts: large and shared outside git (regenerate the DB with etl/build_db.py)
+DATOS/*.txt
+*.txt
+!requirements.txt
+# Generated SQLite database
+data/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# --- Local tooling ---
+.atl/
+.codegraph/
+.claude/settings.local.json
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

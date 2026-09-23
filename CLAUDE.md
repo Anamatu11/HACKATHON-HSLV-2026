@@ -48,9 +48,12 @@ El corazón es el **agente NL2SQL**. El dashboard es el complemento. Todo debe p
 
 ### Estructura de carpetas objetivo
 ```
-hslv/
+HACKATHON-HSLV-2026/     # raíz del repo
 ├── CLAUDE.md
 ├── README.md
+├── .gitignore
+├── DATOS/                # .txt crudos (NO se suben a git) + PDFs del reto
+├── docs/                 # arquitectura, tecnologías, metodología
 ├── requirements.txt
 ├── .env.example          # LLM_PROVIDER, ANTHROPIC_API_KEY, OPENAI_API_KEY, DB_PATH
 ├── data/hospital.db      # NO se sube a git (se regenera con el ETL)
@@ -83,7 +86,7 @@ hslv/
 Si falta un dato o una columna, se agrega en `etl/build_db.py` y se regenera la BD:
 
 ```bash
-python etl/build_db.py --raw "ruta/Insumos Hackaton/Datos" --out data/hospital.db   # ~20 s
+python etl/build_db.py --raw DATOS --out data/hospital.db   # ~20 s
 ```
 
 ### Suciedad del crudo que el ETL ya resuelve (no la vuelvas a "arreglar")
