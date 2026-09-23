@@ -15,8 +15,6 @@ unificada, con un plan B por reglas para que la demo nunca se caiga.
 
 ## Cómo ejecutar
 
-> En construcción: los pasos se completan a medida que se integran los módulos.
-
 ```bash
 # 1. Entorno
 python -m venv .venv
@@ -24,7 +22,7 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # 2. Credenciales
-copy .env.example .env            # completar LLM_PROVIDER y la API key
+copy .env.example .env            # completar LLM_PROVIDER, la API key y AUTH_* (ver abajo)
 
 # 3. Base de datos (~20 s)
 #    Los 7 .txt crudos del HIS NO están en el repo: copiarlos en DATOS/ antes de este paso
@@ -33,12 +31,25 @@ python etl/build_db.py --raw "DATOS" --out data/hospital.db
 # 4. Aplicación
 uvicorn app.main:app --reload     # http://localhost:8000
 
-# 5. Pruebas (sql_guard + las 4 preguntas de la demo)
+#    La primera carga de KPIs tarda ~20 s (se precalienta sola al arrancar); después es instantánea.
+
+# 5. Pruebas (guard SQL, agente, login, KPIs, alertas y las 4 preguntas de la demo)
 python -m pytest -q
 ```
 
-Cada archivo de `app/` indica en su encabezado **quién es responsable y qué debe contener**; las funciones
-pendientes lanzan `NotImplementedError` y las pruebas de `tests/` describen el comportamiento esperado.
+### Variables de entorno (`.env`)
+
+| Variable | Uso | Default |
+|----------|-----|---------|
+| `LLM_PROVIDER` | `anthropic` \| `openai` \| `none` (solo reglas) | `none` |
+| `LLM_MODEL` | Modelo a usar (opcional) | `claude-sonnet-5` / `gpt-4o-mini` |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Clave del proveedor | — |
+| `DB_PATH` | Base SQLite | `data/hospital.db` |
+| `AUTH_USERNAME` | Usuario del panel (acepta también `usuario@hosusana.gov.co`) | `admin` |
+| `AUTH_PASSWORD` | Contraseña del panel | `hslv2026` (**solo demo**, cámbiela) |
+| `AUTH_SECRET` | Clave para firmar los tokens JWT (32+ caracteres aleatorios) | se genera al arrancar |
+
+Sin `AUTH_SECRET`, los tokens dejan de valer al reiniciar el servidor (hay que volver a iniciar sesión).
 
 ## Documentación
 

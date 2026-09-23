@@ -103,65 +103,85 @@ Este contrato es lo primero que se acuerda: permite que frontend y backend traba
 { "error": "La pregunta solicita datos personales y no puede responderse." }
 ```
 
+### Autenticación
+
+`POST /api/auth/login` `{ "username": "admin" | "admin@hosusana.gov.co", "password": "..." }` →
+`{ "access_token": "<JWT>", "token_type": "bearer", "expires_in": 28800, "user": {...} }` · 401 si falla.
+
+`/api/query`, `/api/kpis`, `/api/alerts` y `/api/auth/me` exigen `Authorization: Bearer <token>` (401 sin él).
+`/api/health` y `/api/auth/login` son públicos.
+
 ### `GET /api/kpis`
+
+Se calcula una vez y queda en caché (datos de solo lectura; se precalienta al arrancar el servidor).
 
 ```json
 {
   "reference_date": "2026-09-21",
   "cards": [
-    { "id": "occupancy_today", "label": "Ocupación hoy", "value": 0.0, "unit": "%" },
-    { "id": "avg_wait_7d",     "label": "Espera promedio urgencias (7 días)", "value": 58.6, "unit": "min" },
-    { "id": "critical_stock",  "label": "Medicamentos < 5 días", "value": 35, "unit": "" },
-    { "id": "surgery_perf",    "label": "Cirugías realizadas", "value": 0.0, "unit": "%" }
+    { "id": "hospital_occupancy", "label": "Ocupación hospitalaria hoy", "value": 102.5, "unit": "%",
+      "detail": "374 pacientes en 365 camas físicas · 52,5% incluyendo camas virtuales", "status": "critical" }
   ],
   "series": {
-    "occupancy_daily":       { "labels": ["2026-09-15"], "datasets": [{ "label": "UCI", "data": [55.0] }] },
-    "surgery":               { "labels": ["Programadas", "Realizadas"], "data": [0, 0] },
+    "occupancy_daily":       { "labels": ["2026-08-23", "..."], "threshold": 90, "datasets": [{ "label": "UCI", "data": [] }] },
+    "occupancy_by_service":  { "labels": [], "data": [], "occupied": [], "physical": [], "threshold": 90 },
+    "surgery":               { "labels": ["2026-05"], "scheduled": [], "performed": [], "performed_pct": [] },
     "admissions_by_service": { "labels": ["Urgencias"], "data": [1169] },
-    "top_medications":       { "labels": ["..."], "data": [0] }
+    "admissions_daily":      { "labels": [], "data": [], "moving_avg_7d": [] },
+    "wait_by_triage":        { "labels": ["Triage 1"], "last_7d": [], "historical": [] },
+    "top_medications":       { "labels": [], "data": [] },
+    "low_medications":       { "labels": [], "data": [] },
+    "top_specialties":       { "labels": [], "data": [] }
   },
   "medications_table": [
-    { "item_name": "...", "stock_units": 0, "avg_daily_consumption": 0.0, "days_of_inventory": 0.0, "expiry_date": "2026-10-15" }
+    { "item_code": "...", "item_name": "...", "stock_units": 33, "avg_daily_consumption": 43.17,
+      "days_of_inventory": 0.8, "expiry_date": "2026-10-15", "status": "critical" }
   ]
 }
 ```
 
-> **Fuente de verdad del contrato:** el frontend ya existe con `mockData` en `web/app.js`. Si la forma de ese
-> `mockData` difiere de lo escrito aquí, **manda el `mockData`** y se actualiza este documento. El backend
-> devuelve exactamente esa forma para que la integración sea cambiar mock por `fetch`.
+Tarjetas: `hospital_occupancy`, `uci_occupancy`, `avg_wait_7d`, `critical_stock`, `surgery_performed`, `admissions_month`.
+`status`: `ok` | `warning` | `critical`.
 
 ### `GET /api/alerts`
 
 ```json
 [
-  { "type": "stock", "severity": "critical", "title": "Reabastecer X", "detail": "Quedan 1,4 días (consumo diario 12,3)" }
+  { "type": "occupancy", "severity": "critical", "title": "Pediatría al 165,8% de ocupación",
+    "detail": "63 pacientes en 38 camas físicas (165,8%): se están usando camas virtuales.",
+    "action": "Habilitar camas de expansión y reasignar personal de enfermería desde Urgencias (63,1%) y UCI (73,0%)." }
 ]
 ```
 
-`severity`: `critical` | `warning` | `info`. `type`: `stock` | `expiry` | `occupancy` | `wait_time` | `surgery` | `forecast`.
+`severity`: `critical` | `warning` | `info` (ordenadas así). `type`: `stock` | `expiry` | `occupancy` | `wait_time` |
+`surgery` | `forecast`. `detail` explica el dato y la causa raíz; `action` es la recomendación.
+
+| Alerta | Regla |
+|--------|-------|
+| Desabastecimiento | `days_of_inventory` < 5 (crítico < 2); sugiere unidades para cubrir 15 días |
+| Vencimiento | vence en ≤ 30 días y el stock no alcanza a consumirse antes |
+| Ocupación | ≥ 90% de camas físicas; sugiere de qué servicios (< 80%) reasignar personal |
+| Espera | triage 2 > 30 min o triage 3 > histórico +20%; causa raíz por turno (día 07–19 / noche) y área |
+| Cirugías | % no realizadas, peor mes y reprogramaciones |
+| Predictiva | capítulo CIE-10 con +15% de ingresos/día (2 semanas vs 4 previas), ordenado por impacto absoluto; recomienda los medicamentos característicos del capítulo (mayor *lift*) |
 
 ### `GET /api/health`
 
 `{ "status": "ok", "db": true, "llm_provider": "anthropic", "reference_date": "2026-09-21" }`
 
-> Los valores `0.0` son de ejemplo para el mock del frontend; los reales salen de la BD.
-
 ---
 
 ## 3.1 Frontend (`web/`)
 
-Ya construido con datos mock. Una sola página, sin framework ni build step (Tailwind y Chart.js por CDN).
+Sin framework ni build step (Tailwind y Chart.js por CDN, módulos ES). Detalle en [web/README.md](../web/README.md).
 
-| Componente | Endpoint que lo alimenta |
+| Pantalla / componente | Endpoint |
 |------------|--------------------------|
-| Login de demo | — (solo frontend) |
-| 4 tarjetas KPI | `GET /api/kpis` → `cards` |
-| Gráfico ocupación UCI | `GET /api/kpis` → `series.occupancy_daily` |
-| Gráfico quirófanos | `GET /api/kpis` → `series.surgery` |
-| Ingresos por servicio | `GET /api/kpis` → `series.admissions_by_service` |
-| Tabla de medicamentos + buscador | `GET /api/kpis` → `medications_table` (filtro en el navegador) |
-| Panel de alertas | `GET /api/alerts` |
-| Chat: respuesta, tabla, gráfico, SQL en `<details>`, recomendaciones | `POST /api/query` |
+| Login (`index.html`) | `POST /api/auth/login` |
+| 6 tarjetas KPI + 7 gráficos (Resumen) | `GET /api/kpis` → `cards`, `series` |
+| "Requiere acción hoy" + pestaña Alertas con filtros | `GET /api/alerts` |
+| Chat: respuesta, gráfico, tabla, SQL en `<details>`, recomendaciones | `POST /api/query` |
+| Medicamentos: rotación mayor/menor + tabla con buscador | `GET /api/kpis` → `series.*_medications`, `medications_table` |
 
 FastAPI sirve `web/` en `/` y la API en `/api/*`: mismo origen, sin CORS.
 
@@ -190,7 +210,7 @@ FastAPI sirve `web/` en `/` y la API en `/api/*`: mismo origen, sin CORS.
 | Fuga de datos personales | Columnas prohibidas en el resultado: `patient_id`, `birth_date`, `diagnosis_name`, `diagnosis_code`, `bed_code`, `bed_name`. El ETL ya eliminó nombre y motivo de consulta |
 | Credenciales expuestas | Solo en `.env` (en `.gitignore`); se entrega `.env.example` |
 | Pregunta pide datos personales | El prompt instruye negarse; el guard lo bloquea aunque el LLM no lo haga |
-| Acceso a la app | Login **de demostración** en el frontend (`admin` / `hslv2026`). Es una puerta visual, no seguridad: la clave vive en `app.js` y el repo es público. Mejora: `POST /api/login` validando contra `.env` y JWT (opcional en el reto) |
+| Acceso a la app | Login real: credenciales en `.env` (`AUTH_USERNAME`, `AUTH_PASSWORD`), comparación en tiempo constante, token JWT HS256 firmado con `AUTH_SECRET`, vigencia 8 h. Todo `/api/*` salvo login y health exige token. Pendiente para producción: usuarios en BD con hash de contraseña, roles y límite de intentos |
 
 Diagnósticos solo se muestran **agregados por capítulo CIE-10** (`diagnosis_chapter`), nunca por paciente.
 

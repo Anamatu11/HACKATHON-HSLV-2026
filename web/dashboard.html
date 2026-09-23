@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HSLV · Panel de gestión hospitalaria</title>
+  <link rel="icon" href="assets/logo-hospital.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script>
+    // Sin sesión no se muestra nada del panel
+    if (!sessionStorage.getItem("hslv_token") && !localStorage.getItem("hslv_token")) {
+      window.location.replace("index.html");
+    }
+  </script>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Encabezado: el logo va siempre sobre blanco (Manual de Identidad) -->
+  <header class="bg-white">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+      <img src="assets/logo-hospital.png" alt="Hospital Susana López de Valencia E.S.E. — Acreditado en salud"
+           class="h-10 sm:h-12 w-auto" />
+      <div class="hidden md:block h-10 w-px bg-slate-200"></div>
+      <div class="flex-1 min-w-[180px]">
+        <h1 class="font-display text-base sm:text-lg font-semibold" style="color: var(--brand-navy)">
+          Panel de gestión hospitalaria
+        </h1>
+        <p class="text-xs text-slate-500">Datos al <span id="reference-date">…</span> · Asistente IA con consultas en lenguaje natural</p>
+      </div>
+      <div class="flex items-center gap-3 text-sm">
+        <span id="user-name" class="text-slate-600 hidden sm:inline"></span>
+        <button id="logout" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700">
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+    <div class="brand-stripe" aria-hidden="true"><span></span><span></span><span></span></div>
+  </header>
+
+  <!-- Pestañas -->
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-4 flex gap-6 overflow-x-auto" role="tablist" aria-label="Secciones del panel">
+      <button class="tab py-3 whitespace-nowrap" role="tab" aria-selected="true" aria-controls="tab-summary" data-tab="summary">Resumen</button>
+      <button class="tab py-3 whitespace-nowrap" role="tab" aria-selected="false" aria-controls="tab-assistant" data-tab="assistant">Asistente IA</button>
+      <button class="tab py-3 whitespace-nowrap" role="tab" aria-selected="false" aria-controls="tab-alerts" data-tab="alerts">
+        Alertas <span id="alerts-count" class="ml-1 text-xs rounded-full px-2 py-0.5 text-white" style="background: var(--status-critical)"></span>
+      </button>
+      <button class="tab py-3 whitespace-nowrap" role="tab" aria-selected="false" aria-controls="tab-meds" data-tab="meds">Medicamentos</button>
+    </div>
+  </nav>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+    <p id="loading" class="text-sm text-slate-500">Cargando indicadores…</p>
+    <p id="load-error" class="hidden text-sm rounded-lg p-3 status-critical" role="alert"></p>
+
+    <!-- Resumen -->
+    <section id="tab-summary" role="tabpanel" class="space-y-6">
+      <div id="kpi-cards" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      <div id="top-alerts" class="space-y-2"></div>
+      <div id="summary-charts" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+    </section>
+
+    <!-- Asistente IA -->
+    <section id="tab-assistant" role="tabpanel" class="hidden">
+      <div class="card p-4 sm:p-6 max-w-4xl mx-auto">
+        <h2 class="font-display font-semibold" style="color: var(--brand-navy)">Pregúntale a los datos del hospital</h2>
+        <p class="text-sm text-slate-500 mb-4">Escribe en lenguaje natural. Verás la respuesta, los datos, el gráfico,
+          la consulta SQL usada y recomendaciones. Nunca se muestran datos personales de pacientes.</p>
+        <div id="suggestions" class="flex flex-wrap gap-2 mb-4"></div>
+        <div id="messages" class="space-y-4 mb-4" aria-live="polite"></div>
+        <form id="chat-form" class="flex gap-2 sticky bottom-0 bg-white py-3 border-t border-slate-100">
+          <label for="question" class="sr-only">Pregunta</label>
+          <input id="question" autocomplete="off" maxlength="500" required
+                 placeholder="Ej: ¿Cuántas camas de UCI están ocupadas hoy?"
+                 class="flex-1 border border-slate-300 rounded-lg px-3 py-2.5 text-sm bg-white
+                        focus:outline-none focus:ring-2 focus:ring-green-800/30" />
+          <button id="ask" class="btn-primary rounded-lg px-4 text-sm font-medium">Preguntar</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Alertas -->
+    <section id="tab-alerts" role="tabpanel" class="hidden space-y-4">
+      <div id="alert-filters" class="flex flex-wrap gap-2"></div>
+      <div id="alert-list" class="space-y-3"></div>
+    </section>
+
+    <!-- Medicamentos -->
+    <section id="tab-meds" role="tabpanel" class="hidden space-y-4">
+      <div id="meds-charts" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+      <div class="card p-4">
+        <div class="flex flex-wrap items-end gap-3 mb-3">
+          <div class="flex-1 min-w-[200px]">
+            <h2 class="font-display font-semibold" style="color: var(--brand-navy)">Inventario de medicamentos</h2>
+            <p class="text-xs text-slate-500">Inventario <strong>simulado</strong> a partir del consumo real de los últimos 30 días.</p>
+          </div>
+          <label class="text-sm">
+            <span class="sr-only">Buscar medicamento</span>
+            <input id="meds-search" type="search" placeholder="Buscar medicamento o código"
+                   class="border border-slate-300 rounded-lg px-3 py-2 text-sm w-64 max-w-full" />
+          </label>
+          <label class="text-sm">
+            <span class="sr-only">Filtrar por estado</span>
+            <select id="meds-status" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="">Todos los estados</option>
+              <option value="critical">Crítico (&lt; 2 días)</option>
+              <option value="warning">Atención (&lt; 5 días)</option>
+              <option value="ok">Normal</option>
+            </select>
+          </label>
+        </div>
+        <p id="meds-count" class="text-xs text-slate-500 mb-2"></p>
+        <div class="overflow-auto max-h-[520px] border border-slate-100 rounded-lg" id="meds-table"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-white border-t border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap justify-between gap-2 text-xs text-slate-500">
+      <span class="font-display font-semibold" style="color: var(--brand-green-dark)">¡Pensando en ti, doy lo mejor de mí!</span>
+      <span>Capacidad de camas estimada · inventario simulado · datos de mayo a septiembre de 2026</span>
+    </div>
+  </footer>
+
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

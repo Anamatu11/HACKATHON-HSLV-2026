@@ -61,9 +61,11 @@ HACKATHON-HSLV-2026/     # raíz del repo
 ├── app/                  # Backend (roles A y B)
 │   ├── __init__.py
 │   ├── main.py           # FastAPI: rutas /api/* + sirve web/ como estáticos
-│   ├── db.py             # conexión SQLite solo-lectura
-│   ├── kpis.py           # consultas del dashboard            → GET /api/kpis
-│   ├── alerts.py         # reglas de recomendaciones/alertas  → GET /api/alerts
+│   ├── db.py             # conexión SQLite solo-lectura (timeout por consulta)
+│   ├── auth.py           # login con .env + JWT               → POST /api/auth/login, GET /api/auth/me
+│   ├── formatting.py     # cifras en formato es-CO (1.169 · 58,7)
+│   ├── kpis.py           # consultas del dashboard (cacheadas) → GET /api/kpis
+│   ├── alerts.py         # alertas + recomendaciones + predictiva → GET /api/alerts
 │   └── agent/
 │       ├── __init__.py
 │       ├── agent.py           # orquesta: pregunta → SQL → ejecuta → respuesta → POST /api/query
@@ -71,17 +73,19 @@ HACKATHON-HSLV-2026/     # raíz del repo
 │       ├── sql_guard.py       # validación/saneamiento del SQL
 │       ├── schema_prompt.py   # esquema + reglas + few-shot para el LLM
 │       └── llm.py             # cliente Anthropic/OpenAI (factory)
-├── web/                  # Frontend (rol C) — YA EXISTE con datos mock
-│   ├── index.html        # login, 4 KPI, gráficos, alertas, chat, tabla de medicamentos
-│   └── app.js            # lógica, mockData, Chart.js y chat
-└── tests/                # pruebas de sql_guard y de las 4 preguntas de la demo
+├── web/                  # Frontend conectado a la API real (detalle en web/README.md)
+│   ├── index.html        # login JWT con identidad HSLV
+│   ├── dashboard.html    # pestañas: Resumen · Asistente IA · Alertas · Medicamentos
+│   ├── css/styles.css    # tokens de marca + paleta de gráficos validada
+│   ├── js/               # api.js, ui.js, charts.js, dashboard.js, chat.js (módulos ES)
+│   └── assets/           # logo oficial con sello de acreditación
+└── tests/                # guard SQL, agente (LLM falso), API, login, KPIs, alertas, 4 preguntas demo
 ```
 
-**Frontend (`web/`)**: HTML + Tailwind (CDN) + Chart.js (CDN), sin framework ni build step. Incluye login de demo,
-identidad HSLV, 4 KPI, gráficos (ocupación UCI, quirófanos, ingresos por servicio), alertas, chat con SQL
-desplegable (`<details>`) y recomendaciones, tabla de medicamentos con buscador client-side, responsive.
-Hoy consume `mockData`; la integración consiste en reemplazar cada mock por `fetch('/api/...')` **sin cambiar
-la forma del JSON**: el `mockData` de `app.js` es el contrato que el backend debe respetar.
+**Frontend (`web/`)**: HTML + Tailwind (CDN) + Chart.js (CDN), sin framework ni build step. Sigue el Manual de
+Marca HSLV 2026 (verde `#76b82a`, verde oscuro `#327531`, azul `#29235c`; logo siempre sobre blanco, sin alterar,
+con sello de acreditación; lema "¡Pensando en ti, doy lo mejor de mí!"). Todo texto de la API se inserta con
+`textContent` (nunca `innerHTML`).
 
 ### Endpoints mínimos
 - `POST /api/query` `{question}` → `{answer, sql, columns, rows, chart, recommendations}`

@@ -10,30 +10,47 @@ Reglas:
 """
 import os
 import sqlite3
+import time
+from functools import lru_cache
+from pathlib import Path
 
-DB_PATH = os.getenv("DB_PATH", "data/hospital.db")
-QUERY_TIMEOUT_SECONDS = 5
+ROOT = Path(__file__).resolve().parent.parent
+QUERY_TIMEOUT_SECONDS = 10          # SQL del agente/LLM: corto, protege la demo
+REPORT_QUERY_TIMEOUT_SECONDS = 120  # consultas internas del dashboard (se calculan una vez y se cachean)
+PROGRESS_CHECK_OPS = 10_000         # cada cuántas operaciones de SQLite se revisa el timeout
+
+
+def db_path() -> Path:
+    """Ruta de la BD: DB_PATH del .env; si es relativa, se resuelve desde la raíz del repo."""
+    path = Path(os.getenv("DB_PATH", "data/hospital.db"))
+    return path if path.is_absolute() else ROOT / path
 
 
 def get_connection() -> sqlite3.Connection:
-    """Devuelve una conexión solo-lectura a DB_PATH.
-
-    TODO (Rol A):
-        sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, check_same_thread=False)
-        y cortar consultas que superen QUERY_TIMEOUT_SECONDS
-        (p. ej. con con.set_progress_handler + time.monotonic()).
-    """
-    raise NotImplementedError
+    """Devuelve una conexión solo-lectura. Falla si la BD no existe (mode=ro no la crea)."""
+    return sqlite3.connect(f"file:{db_path().as_posix()}?mode=ro", uri=True, check_same_thread=False)
 
 
-def run_query(sql: str, params: tuple = ()) -> tuple[list[str], list[list]]:
+def run_query(sql: str, params: tuple = (), timeout: float = QUERY_TIMEOUT_SECONDS) -> tuple[list[str], list[list]]:
     """Ejecuta una consulta y devuelve (columns, rows) listos para JSON.
 
-    Solo se llama con SQL que ya pasó por sql_guard.validate_sql().
+    El SQL del agente pasa antes por sql_guard.validate_sql(); kpis/alerts usan SQL fijo del código.
+    Si supera `timeout` segundos, SQLite la interrumpe (sqlite3.OperationalError: interrupted).
     """
-    raise NotImplementedError
+    con = get_connection()
+    deadline = time.monotonic() + timeout
+    con.set_progress_handler(lambda: int(time.monotonic() > deadline), PROGRESS_CHECK_OPS)
+    try:
+        cur = con.execute(sql, params)
+        columns = [d[0] for d in cur.description or []]
+        rows = [list(r) for r in cur.fetchall()]
+    finally:
+        con.close()
+    return columns, rows
 
 
+@lru_cache(maxsize=1)
 def get_reference_date() -> str:
-    """Devuelve la fecha 'hoy' del dataset: SELECT value FROM dataset_meta WHERE key='reference_date'."""
-    raise NotImplementedError
+    """Devuelve la fecha 'hoy' del dataset (no cambia mientras corre la app)."""
+    _, rows = run_query("SELECT value FROM dataset_meta WHERE key = 'reference_date'")
+    return rows[0][0]

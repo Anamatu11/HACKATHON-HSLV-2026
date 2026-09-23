@@ -1,0 +1,94 @@
+/*
+ * Tokens visuales HSLV.
+ * Marca (Manual de Identidad 2026): verde #76b82a (Pantone 368C), verde oscuro #327531 (364C),
+ * azul marino #29235c (2758C), blanco. El logo va siempre sobre fondo blanco, sin alterarse.
+ * Paleta de gráficos validada (dataviz validate_palette, superficie #ffffff): todas las pruebas PASS.
+ */
+:root {
+  color-scheme: light;
+  --brand-green: #76b82a;
+  --brand-green-dark: #327531;
+  --brand-navy: #29235c;
+
+  --page: #f5f7f4;
+  --surface: #ffffff;
+  --text-primary: #1b1a2e;
+  --text-secondary: #4f4d63;
+  --text-muted: #7b7a8c;
+  --border: rgba(41, 35, 92, 0.12);
+  --grid: #e8e8ee;
+
+  /* Series categóricas (orden fijo, nunca cíclico) */
+  --series-1: #327531;
+  --series-2: #2a78d6;
+  --series-3: #eb6834;
+  --series-4: #4a3aa7;
+
+  /* Estados (reservados; siempre con icono + texto) */
+  --status-ok: #0ca30c;
+  --status-warning: #b57d00;
+  --status-critical: #d03b3b;
+  --status-ok-bg: #eaf7ea;
+  --status-warning-bg: #fff6df;
+  --status-critical-bg: #fdecec;
+}
+
+body {
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.font-display { font-family: "Poppins", system-ui, sans-serif; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.brand-stripe { display: flex; height: 4px; }
+.brand-stripe span:nth-child(1) { flex: 1; background: var(--brand-green); }
+.brand-stripe span:nth-child(2) { flex: 1; background: var(--brand-green-dark); }
+.brand-stripe span:nth-child(3) { flex: 1; background: var(--brand-navy); }
+
+/* Estado de tarjetas KPI y alertas */
+.status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
+          border-radius: 999px; padding: 2px 8px; }
+.status-ok { color: var(--status-ok); background: var(--status-ok-bg); }
+.status-warning { color: var(--status-warning); background: var(--status-warning-bg); }
+.status-critical { color: var(--status-critical); background: var(--status-critical-bg); }
+.accent-ok { border-left: 4px solid var(--status-ok); }
+.accent-warning { border-left: 4px solid var(--status-warning); }
+.accent-critical { border-left: 4px solid var(--status-critical); }
+.accent-info { border-left: 4px solid var(--series-2); }
+
+/* Pestañas */
+.tab { color: var(--text-secondary); border-bottom: 2px solid transparent; }
+.tab[aria-selected="true"] { color: var(--brand-green-dark); border-color: var(--brand-green-dark); font-weight: 600; }
+
+/* Contenedor de gráfico: alto fijo que incluye los ejes (sin scroll interno) */
+.chart-box { position: relative; height: 280px; }
+.chart-box.tall { height: 360px; }
+
+/* Chat */
+.bubble-user { background: var(--brand-navy); color: #fff; border-radius: 16px 16px 4px 16px; }
+.bubble-bot { background: var(--surface); border: 1px solid var(--border); border-radius: 16px 16px 16px 4px; }
+.chip { border: 1px solid var(--border); background: var(--surface); color: var(--brand-navy); border-radius: 999px; }
+.chip:hover { border-color: var(--brand-green-dark); color: var(--brand-green-dark); }
+details > summary { cursor: pointer; }
+pre.sql { background: #f3f3f7; border-radius: 8px; padding: 10px; font-size: 12px; white-space: pre-wrap; }
+
+/* Tablas */
+.data-table th { position: sticky; top: 0; background: #f7f7fa; font-weight: 600; color: var(--text-secondary); }
+.data-table td, .data-table th { padding: 6px 10px; border-bottom: 1px solid var(--grid); text-align: left; }
+.data-table td.num, .data-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.btn-primary { background: var(--brand-green-dark); color: #fff; }
+.btn-primary:hover { background: var(--brand-navy); }
+.btn-primary:disabled { opacity: .6; cursor: wait; }
+
+:focus-visible { outline: 2px solid var(--series-2); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

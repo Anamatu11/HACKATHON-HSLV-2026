@@ -2,12 +2,12 @@
 .env
 .env.*
 !.env.example
-
 # --- Data ---
 # Raw HIS extracts: large and shared outside git (regenerate the DB with etl/build_db.py)
 DATOS/*.txt
 *.txt
 !requirements.txt
+Manual de Marca HSLV 2026.pdf
 # Generated SQLite database
 data/
 *.db
