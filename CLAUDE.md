@@ -56,21 +56,32 @@ HACKATHON-HSLV-2026/     # raíz del repo
 ├── docs/                 # arquitectura, tecnologías, metodología
 ├── requirements.txt
 ├── .env.example          # LLM_PROVIDER, ANTHROPIC_API_KEY, OPENAI_API_KEY, DB_PATH
-├── data/hospital.db      # NO se sube a git (se regenera con el ETL)
+├── data/hospital.db      # NO se sube a git (~260 MB, GitHub rechaza >100 MB; se regenera con el ETL)
 ├── etl/build_db.py       # YA EXISTE y está validado
-├── app/
-│   ├── main.py           # FastAPI: rutas + estáticos
+├── app/                  # Backend (roles A y B)
+│   ├── __init__.py
+│   ├── main.py           # FastAPI: rutas /api/* + sirve web/ como estáticos
 │   ├── db.py             # conexión SQLite solo-lectura
-│   ├── agent/
-│   │   ├── schema_prompt.py   # esquema + reglas + few-shot para el LLM
-│   │   ├── llm.py             # cliente Anthropic/OpenAI (factory)
-│   │   ├── sql_guard.py       # validación/saneamiento del SQL
-│   │   ├── fallback.py        # preguntas frecuentes → SQL fijo (plan B)
-│   │   └── agent.py           # orquesta: pregunta → SQL → ejecuta → respuesta
-│   ├── kpis.py           # consultas del dashboard
-│   └── alerts.py         # reglas de recomendaciones
-└── web/                  # index.html, app.js, styles
+│   ├── kpis.py           # consultas del dashboard            → GET /api/kpis
+│   ├── alerts.py         # reglas de recomendaciones/alertas  → GET /api/alerts
+│   └── agent/
+│       ├── __init__.py
+│       ├── agent.py           # orquesta: pregunta → SQL → ejecuta → respuesta → POST /api/query
+│       ├── fallback.py        # preguntas frecuentes → SQL fijo (plan B)
+│       ├── sql_guard.py       # validación/saneamiento del SQL
+│       ├── schema_prompt.py   # esquema + reglas + few-shot para el LLM
+│       └── llm.py             # cliente Anthropic/OpenAI (factory)
+├── web/                  # Frontend (rol C) — YA EXISTE con datos mock
+│   ├── index.html        # login, 4 KPI, gráficos, alertas, chat, tabla de medicamentos
+│   └── app.js            # lógica, mockData, Chart.js y chat
+└── tests/                # pruebas de sql_guard y de las 4 preguntas de la demo
 ```
+
+**Frontend (`web/`)**: HTML + Tailwind (CDN) + Chart.js (CDN), sin framework ni build step. Incluye login de demo,
+identidad HSLV, 4 KPI, gráficos (ocupación UCI, quirófanos, ingresos por servicio), alertas, chat con SQL
+desplegable (`<details>`) y recomendaciones, tabla de medicamentos con buscador client-side, responsive.
+Hoy consume `mockData`; la integración consiste en reemplazar cada mock por `fetch('/api/...')` **sin cambiar
+la forma del JSON**: el `mockData` de `app.js` es el contrato que el backend debe respetar.
 
 ### Endpoints mínimos
 - `POST /api/query` `{question}` → `{answer, sql, columns, rows, chart, recommendations}`

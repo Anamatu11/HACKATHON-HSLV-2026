@@ -49,7 +49,7 @@ Roles Scrum (livianos):
 |-----|--------|
 | A | `db.py` (conexión RO) · `sql_guard.py` · `fallback.py` con las 4 preguntas · `POST /api/query` |
 | B | Validar las cifras de las 4 preguntas en SQLite · `kpis.py` con las 4 tarjetas · `GET /api/kpis` |
-| C | Maqueta `index.html` (dashboard + chat) con Tailwind · `app.js` consumiendo JSON mock del contrato |
+| C | ✅ Maqueta lista (`web/index.html` + `app.js` con `mockData`) · Subirla a su rama · Documentar la forma del `mockData` como contrato · Centralizar los mocks en una función `api()` para cambiarlos por `fetch` en un solo lugar |
 
 ### Sprint 2 — Inteligencia (2:30–5:00)
 
@@ -57,7 +57,7 @@ Roles Scrum (livianos):
 |-----|--------|
 | A | `schema_prompt.py` (esquema + few-shot) · `llm.py` (factory) · reintento con error · redacción de respuesta |
 | B | Series para gráficos (ocupación diaria, ingresos por servicio, top medicamentos) · ~10 reglas extra para `fallback.py` |
-| C | Conectar a la API real · tabla de resultados · gráfico dinámico según `chart` · SQL colapsable |
+| C | Reemplazar `mockData` por `fetch('/api/...')` · estados de carga/error · gráfico del chat según `chart` · ensayar las 4 preguntas en la UI |
 
 ### Sprint 3 — Valor añadido (5:00–6:30)
 

@@ -115,12 +115,20 @@ Este contrato es lo primero que se acuerda: permite que frontend y backend traba
     { "id": "surgery_perf",    "label": "Cirugías realizadas", "value": 0.0, "unit": "%" }
   ],
   "series": {
-    "occupancy_daily":     { "labels": ["2026-09-15"], "datasets": [{ "label": "UCI", "data": [55.0] }] },
+    "occupancy_daily":       { "labels": ["2026-09-15"], "datasets": [{ "label": "UCI", "data": [55.0] }] },
+    "surgery":               { "labels": ["Programadas", "Realizadas"], "data": [0, 0] },
     "admissions_by_service": { "labels": ["Urgencias"], "data": [1169] },
-    "top_medications":     { "labels": ["..."], "data": [0] }
-  }
+    "top_medications":       { "labels": ["..."], "data": [0] }
+  },
+  "medications_table": [
+    { "item_name": "...", "stock_units": 0, "avg_daily_consumption": 0.0, "days_of_inventory": 0.0, "expiry_date": "2026-10-15" }
+  ]
 }
 ```
+
+> **Fuente de verdad del contrato:** el frontend ya existe con `mockData` en `web/app.js`. Si la forma de ese
+> `mockData` difiere de lo escrito aquí, **manda el `mockData`** y se actualiza este documento. El backend
+> devuelve exactamente esa forma para que la integración sea cambiar mock por `fetch`.
 
 ### `GET /api/alerts`
 
@@ -137,6 +145,25 @@ Este contrato es lo primero que se acuerda: permite que frontend y backend traba
 `{ "status": "ok", "db": true, "llm_provider": "anthropic", "reference_date": "2026-09-21" }`
 
 > Los valores `0.0` son de ejemplo para el mock del frontend; los reales salen de la BD.
+
+---
+
+## 3.1 Frontend (`web/`)
+
+Ya construido con datos mock. Una sola página, sin framework ni build step (Tailwind y Chart.js por CDN).
+
+| Componente | Endpoint que lo alimenta |
+|------------|--------------------------|
+| Login de demo | — (solo frontend) |
+| 4 tarjetas KPI | `GET /api/kpis` → `cards` |
+| Gráfico ocupación UCI | `GET /api/kpis` → `series.occupancy_daily` |
+| Gráfico quirófanos | `GET /api/kpis` → `series.surgery` |
+| Ingresos por servicio | `GET /api/kpis` → `series.admissions_by_service` |
+| Tabla de medicamentos + buscador | `GET /api/kpis` → `medications_table` (filtro en el navegador) |
+| Panel de alertas | `GET /api/alerts` |
+| Chat: respuesta, tabla, gráfico, SQL en `<details>`, recomendaciones | `POST /api/query` |
+
+FastAPI sirve `web/` en `/` y la API en `/api/*`: mismo origen, sin CORS.
 
 ---
 
@@ -163,6 +190,7 @@ Este contrato es lo primero que se acuerda: permite que frontend y backend traba
 | Fuga de datos personales | Columnas prohibidas en el resultado: `patient_id`, `birth_date`, `diagnosis_name`, `diagnosis_code`, `bed_code`, `bed_name`. El ETL ya eliminó nombre y motivo de consulta |
 | Credenciales expuestas | Solo en `.env` (en `.gitignore`); se entrega `.env.example` |
 | Pregunta pide datos personales | El prompt instruye negarse; el guard lo bloquea aunque el LLM no lo haga |
+| Acceso a la app | Login **de demostración** en el frontend (`admin` / `hslv2026`). Es una puerta visual, no seguridad: la clave vive en `app.js` y el repo es público. Mejora: `POST /api/login` validando contra `.env` y JWT (opcional en el reto) |
 
 Diagnósticos solo se muestran **agregados por capítulo CIE-10** (`diagnosis_chapter`), nunca por paciente.
 

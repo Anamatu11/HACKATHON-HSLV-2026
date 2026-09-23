@@ -32,7 +32,13 @@ python etl/build_db.py --raw "DATOS" --out data/hospital.db
 
 # 4. Aplicación
 uvicorn app.main:app --reload     # http://localhost:8000
+
+# 5. Pruebas (sql_guard + las 4 preguntas de la demo)
+python -m pytest -q
 ```
+
+Cada archivo de `app/` indica en su encabezado **quién es responsable y qué debe contener**; las funciones
+pendientes lanzan `NotImplementedError` y las pruebas de `tests/` describen el comportamiento esperado.
 
 ## Documentación
 
