@@ -53,3 +53,10 @@ export const getOccupancy = (params) => {
   const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "" && v != null));
   return api(`/api/occupancy?${query}`);
 };
+export const getPermissions = () => api("/api/permissions");
+export const savePermissions = (matrix) => api("/api/permissions", { method: "PUT", body: { matrix } });
+export const getUsers = () => api("/api/users");
+export const createUser = (user) => api("/api/users", { method: "POST", body: user });
+export const updateUser = (username, changes) =>
+  api(`/api/users/${encodeURIComponent(username)}`, { method: "PATCH", body: changes });
+export const deleteUser = (username) => api(`/api/users/${encodeURIComponent(username)}`, { method: "DELETE" });

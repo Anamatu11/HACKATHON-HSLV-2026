@@ -49,7 +49,20 @@ python -m pytest -q
 | `AUTH_PASSWORD` | Contraseña del panel | `hslv2026` (**solo demo**, cámbiela) |
 | `AUTH_SECRET` | Clave para firmar los tokens JWT (32+ caracteres aleatorios) | se genera al arrancar |
 
+| `ACCESS_PATH` | Archivo de usuarios y matriz de permisos | `data/access.json` |
+
 Sin `AUTH_SECRET`, los tokens dejan de valer al reiniciar el servidor (hay que volver a iniciar sesión).
+
+### Permisos por rol
+
+| Rol | Acceso por defecto |
+|-----|--------------------|
+| **Gerencia / Dirección** | Todos los módulos + pestaña **Permisos** (usuarios y matriz rol × módulo) |
+| **Jefe de servicio** | Dashboard, Ocupación, Asistente IA, Alertas y Medicamentos; queda asociado a un servicio |
+
+El usuario del `.env` es siempre Dirección. Desde **Permisos** crea usuarios (contraseña con hash PBKDF2),
+los activa o desactiva, les cambia el rol y marca qué módulos ve cada rol. Los cambios aplican de inmediato:
+el backend responde 403 a los módulos no permitidos y el panel oculta sus pestañas.
 
 ## Documentación
 

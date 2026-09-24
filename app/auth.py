@@ -10,7 +10,10 @@ Variables (.env):
                     (los tokens dejan de valer al reiniciar el servidor)
 
 El usuario puede escribir "admin" o su correo institucional "admin@hosusana.gov.co".
-Rutas: POST /api/auth/login, GET /api/auth/me. Las demás rutas /api/* usan `require_user`.
+El usuario del .env es siempre Gerencia / Dirección. Los demás usuarios (p. ej. jefes de servicio) se crean
+desde la pestaña Permisos y viven en data/access.json (ver app/permissions.py).
+Rutas: POST /api/auth/login, GET /api/auth/me. Las demás rutas /api/* usan `require_user`
+o `permissions.require_permission(<módulo>)`.
 """
 import hmac
 import logging
@@ -29,6 +32,7 @@ ALGORITHM = "HS256"
 TOKEN_TTL_SECONDS = 8 * 60 * 60          # una jornada
 INSTITUTIONAL_DOMAIN = "hosusana.gov.co"
 DEMO_PASSWORD = "hslv2026"
+DIRECTOR_NAME = "Dirección HSLV"
 _GENERATED_SECRET = secrets.token_urlsafe(32)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -61,15 +65,18 @@ def authenticate(identifier: str, password: str) -> dict | None:
     # compare_digest evita filtrar información por el tiempo de respuesta
     user_ok = hmac.compare_digest((username or "").encode(), expected_user.encode())
     password_ok = hmac.compare_digest(password.encode(), expected_password.encode())
-    if not (user_ok and password_ok):
+    if user_ok and password_ok:
+        return {"username": expected_user, "name": DIRECTOR_NAME, "role": "director", "service": None}
+    if username is None or username == expected_user:
         return None
-    return {"username": expected_user, "name": "Dirección HSLV", "role": "director"}
+    from app import permissions   # import diferido: permissions depende de este módulo
+    return permissions.authenticate_stored(username, password)
 
 
 def create_token(user: dict) -> str:
     now = int(time.time())
     claims = {"sub": user["username"], "name": user["name"], "role": user["role"],
-              "iat": now, "exp": now + TOKEN_TTL_SECONDS}
+              "service": user.get("service"), "iat": now, "exp": now + TOKEN_TTL_SECONDS}
     return jwt.encode(claims, _secret(), algorithm=ALGORITHM)
 
 
@@ -83,7 +90,17 @@ def require_user(credentials: HTTPAuthorizationCredentials | None = Depends(bear
         raise HTTPException(status_code=401, detail="La sesión expiró. Inicie sesión de nuevo.")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Sesión inválida. Inicie sesión de nuevo.")
-    return {"username": claims["sub"], "name": claims.get("name", ""), "role": claims.get("role", "")}
+    username = claims["sub"]
+    if username == os.getenv("AUTH_USERNAME", "admin").lower():
+        return {"username": username, "name": claims.get("name", ""), "role": claims.get("role", ""),
+                "service": claims.get("service")}
+    # Usuario creado desde el panel: rol y estado se leen en cada petición, así desactivarlo o
+    # cambiarle el rol aplica de inmediato sin esperar a que venza el token.
+    from app import permissions
+    user = permissions.find_user(username)
+    if user is None or not user["active"]:
+        raise HTTPException(status_code=401, detail="Usuario desactivado. Contacte a Dirección.")
+    return {k: user[k] for k in ("username", "name", "role", "service")}
 
 
 @router.post("/login")
@@ -92,10 +109,12 @@ def login(req: LoginRequest) -> dict:
     if user is None:
         logger.warning("Login fallido para '%s'", req.username)
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos.")
+    from app import permissions
     return {"access_token": create_token(user), "token_type": "bearer",
-            "expires_in": TOKEN_TTL_SECONDS, "user": user}
+            "expires_in": TOKEN_TTL_SECONDS, "user": permissions.describe(user)}
 
 
 @router.get("/me")
 def me(user: dict = Depends(require_user)) -> dict:
-    return user
+    from app import permissions
+    return permissions.describe(user)

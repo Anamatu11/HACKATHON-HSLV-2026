@@ -8,11 +8,12 @@ Ejecutar desde la raíz del repo:
 
 Rutas (contrato completo en docs/01-arquitectura.md §3):
     POST /api/auth/login  -> token JWT (público)
-    GET  /api/auth/me     -> usuario de la sesión
-    POST /api/query       -> agent.answer_question()   (requiere sesión)
-    GET  /api/kpis        -> kpis.get_kpis()            (requiere sesión)
-    GET  /api/alerts      -> alerts.get_alerts()        (requiere sesión)
-    GET  /api/occupancy/filters, /api/occupancy -> occupancy.*  (requiere sesión)
+    GET  /api/auth/me     -> usuario de la sesión + rol + módulos permitidos
+    POST /api/query       -> agent.answer_question()   (módulo assistant)
+    GET  /api/kpis        -> kpis.get_kpis()            (módulo dashboard o medications)
+    GET  /api/alerts      -> alerts.get_alerts()        (módulo alerts)
+    GET  /api/occupancy/filters, /api/occupancy -> occupancy.*  (módulo occupancy)
+    /api/permissions, /api/users -> permissions.*       (módulo permissions: Dirección)
     GET  /api/health      -> estado de la BD y del proveedor LLM (público)
     /                     -> web/ (index.html = login, dashboard.html, assets)
 """
@@ -30,7 +31,7 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 
-from app import alerts, auth, db, kpis, occupancy  # noqa: E402  (después de load_dotenv para que lean el .env)
+from app import alerts, auth, db, kpis, occupancy, permissions  # noqa: E402  (después de load_dotenv para que lean el .env)
 from app.agent import agent  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
@@ -55,6 +56,8 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="HSLV - Asistente IA de Gestión Hospitalaria", version="0.2.0", lifespan=lifespan)
 app.include_router(auth.router)
+app.include_router(permissions.router)
+allow = permissions.require_permission
 
 
 class QueryRequest(BaseModel):
@@ -78,29 +81,29 @@ def agent_error_handler(_, exc: agent.AgentError) -> JSONResponse:
 
 
 @app.post("/api/query")
-def query(req: QueryRequest, _user: dict = Depends(auth.require_user)) -> dict:
+def query(req: QueryRequest, _user: dict = Depends(allow("assistant"))) -> dict:
     return agent.answer_question(req.question)
 
 
 @app.get("/api/kpis")
-def get_kpis(_user: dict = Depends(auth.require_user)) -> dict:
+def get_kpis(_user: dict = Depends(allow("dashboard", "medications"))) -> dict:
     return kpis.get_kpis()
 
 
 @app.get("/api/alerts")
-def get_alerts(_user: dict = Depends(auth.require_user)) -> list[dict]:
+def get_alerts(_user: dict = Depends(allow("alerts"))) -> list[dict]:
     return alerts.get_alerts()
 
 
 @app.get("/api/occupancy/filters")
-def get_occupancy_filters(_user: dict = Depends(auth.require_user)) -> dict:
+def get_occupancy_filters(_user: dict = Depends(allow("occupancy"))) -> dict:
     return occupancy.get_filters()
 
 
 @app.get("/api/occupancy")
 def get_occupancy(service: str | None = None, sub_service: str | None = None, specialty: str | None = None,
                   granularity: str = "daily", start: str | None = None, end: str | None = None,
-                  _user: dict = Depends(auth.require_user)):
+                  _user: dict = Depends(allow("occupancy"))):
     try:
         return occupancy.get_occupancy(service or None, sub_service or None, specialty or None,
                                        granularity, start or None, end or None)

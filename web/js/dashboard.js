@@ -1,13 +1,20 @@
 // Panel principal: tarjetas KPI, gráficos, alertas, inventario y pestañas.
-import { getAlerts, getKpis, getUser, logout } from "./api.js";
+import { getAlerts, getKpis, getMe, logout } from "./api.js";
 import { barChart, chartCard, doughnutChart, lineChart, SERIES } from "./charts.js";
 import { initChat } from "./chat.js";
 import { initImportPanel } from "./import.js";
 import { initOccupancy } from "./occupancy.js";
+import { initPermissions } from "./permissions.js";
 import { el, fmt, fmtDate, statusBadge } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
-const state = { kpis: null, alerts: [], medsRendered: false, alertFilter: "" };
+const state = { kpis: null, alerts: [], medsRendered: false, alertFilter: "", allowed: new Set() };
+
+// Pestaña del panel -> módulo de permisos del backend (app/permissions.py)
+const TAB_MODULE = {
+  summary: "dashboard", occupancy: "occupancy", assistant: "assistant",
+  alerts: "alerts", meds: "medications", permissions: "permissions",
+};
 
 const ALERT_TYPES = {
   stock: "Desabastecimiento", occupancy: "Ocupación", wait_time: "Tiempos de espera",
@@ -19,28 +26,56 @@ const ALERT_TYPES = {
 init();
 
 async function init() {
-  const user = getUser();
-  $("user-name").textContent = user ? `${user.name} · ${user.username}` : "";
   $("logout").addEventListener("click", logout);
-  setupTabs();
-  initChat();
-  initImportPanel();
+  // Rol y permisos frescos del backend (Dirección pudo cambiarlos después del login)
+  let user;
   try {
-    const [kpis, alerts] = await Promise.all([getKpis(), getAlerts()]);
+    user = await getMe();
+  } catch {
+    return;   // api() ya redirige al login si la sesión no es válida
+  }
+  $("user-name").textContent = `${user.name} · ${user.role_label}${user.service ? ` (${user.service})` : ""}`;
+  state.allowed = new Set(user.permissions || []);
+  const can = (module) => state.allowed.has(module);
+  applyTabPermissions();
+  setupTabs();
+  if (can("assistant")) initChat();
+  if (can("dashboard")) initImportPanel();
+  if (can("permissions")) initPermissions();
+  try {
+    const [kpis, alerts] = await Promise.all([
+      can("dashboard") || can("medications") ? getKpis() : null,
+      can("alerts") ? getAlerts() : [],
+    ]);
     state.kpis = kpis;
     state.alerts = alerts;
-    $("reference-date").textContent = fmtDate(kpis.reference_date);
-    renderCards(kpis.cards);
     renderTopAlerts(alerts);
-    renderSummaryCharts(kpis.series);
     renderAlertsTab();
-    setupMedsTable(kpis.medications_table);
-    if (kpis.admissions_table) setupAdmissionsTable(kpis.admissions_table);
+    if (kpis) {
+      $("reference-date").textContent = fmtDate(kpis.reference_date);
+      renderCards(kpis.cards);
+      renderSummaryCharts(kpis.series);
+      setupMedsTable(kpis.medications_table);
+      if (kpis.admissions_table) setupAdmissionsTable(kpis.admissions_table);
+    }
   } catch (e) {
     $("load-error").textContent = `No se pudieron cargar los indicadores: ${e.message}`;
     $("load-error").classList.remove("hidden");
   } finally {
     $("loading").classList.add("hidden");
+  }
+}
+
+/** Oculta las pestañas sin permiso y abre la primera permitida. */
+function applyTabPermissions() {
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  tabs.forEach((t) => { t.hidden = !state.allowed.has(TAB_MODULE[t.dataset.tab]); });
+  const first = tabs.find((t) => !t.hidden);
+  if (first) showTab(first.dataset.tab);
+  else {
+    document.querySelectorAll('[role="tabpanel"]').forEach((p) => p.classList.add("hidden"));
+    $("load-error").textContent = "Su rol no tiene módulos asignados. Contacte a Gerencia / Dirección.";
+    $("load-error").classList.remove("hidden");
   }
 }
 
@@ -50,6 +85,7 @@ function setupTabs() {
 }
 
 export function showTab(name) {
+  if (!state.allowed.has(TAB_MODULE[name])) return;
   document.querySelectorAll('[role="tab"]').forEach((t) => t.setAttribute("aria-selected", String(t.dataset.tab === name)));
   document.querySelectorAll('[role="tabpanel"]').forEach((p) => p.classList.toggle("hidden", p.id !== `tab-${name}`));
   if (name === "meds" && state.kpis && !state.medsRendered) {

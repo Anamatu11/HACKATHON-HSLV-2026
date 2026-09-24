@@ -76,6 +76,7 @@
         Alertas <span id="alerts-count" class="ml-1 text-xs rounded-full px-2 py-0.5 text-white" style="background: var(--status-critical)"></span>
       </button>
       <button class="tab py-3 whitespace-nowrap" role="tab" aria-selected="false" aria-controls="tab-meds" data-tab="meds">Medicamentos</button>
+      <button class="tab py-3 whitespace-nowrap" role="tab" aria-selected="false" aria-controls="tab-permissions" data-tab="permissions">Permisos</button>
     </div>
   </nav>
 
@@ -231,6 +232,51 @@
         <p id="meds-count" class="text-xs text-slate-500 mb-2"></p>
         <div class="overflow-auto max-h-[520px] border border-slate-100 rounded-lg" id="meds-table"></div>
       </div>
+    </section>
+
+    <!-- Permisos por rol: Gerencia/Dirección administra usuarios y la matriz rol × módulo -->
+    <section id="tab-permissions" role="tabpanel" class="hidden space-y-4">
+      <div>
+        <h2 class="font-display font-semibold" style="color: var(--brand-navy)">Permisos por rol</h2>
+        <p class="text-sm text-slate-500">Defina qué módulos ve cada rol y administre los usuarios de Gerencia / Dirección y Jefes de servicio.</p>
+      </div>
+      <p id="perm-error" class="hidden text-sm rounded-lg p-3 status-critical" role="alert"></p>
+      <p id="perm-ok" class="hidden text-sm rounded-lg p-3 status-ok" role="status"></p>
+
+      <article class="card p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="font-display font-semibold text-base" style="color: var(--brand-navy)">Matriz de permisos</h3>
+            <p class="text-xs text-slate-500">Los cambios aplican de inmediato a las sesiones abiertas. Dirección conserva siempre el módulo Permisos.</p>
+          </div>
+          <button id="perm-save" class="btn-primary rounded-lg px-4 py-2 text-sm font-medium">Guardar permisos</button>
+        </div>
+        <div id="perm-matrix" class="overflow-auto border border-slate-100 rounded-lg"></div>
+      </article>
+
+      <article class="card p-4 space-y-3">
+        <div>
+          <h3 class="font-display font-semibold text-base" style="color: var(--brand-navy)">Usuarios</h3>
+          <p class="text-xs text-slate-500">Cada jefe de servicio queda asociado a su servicio. Las contraseñas se guardan cifradas (hash).</p>
+        </div>
+        <form id="user-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end" aria-label="Crear usuario">
+          <label class="text-xs text-slate-600">Usuario
+            <input name="username" required minlength="3" maxlength="40" pattern="[a-zA-Z0-9._\-]+" placeholder="jefe.uci"
+                   class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" /></label>
+          <label class="text-xs text-slate-600">Nombre
+            <input name="name" required minlength="2" maxlength="80" placeholder="Jefe de UCI"
+                   class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" /></label>
+          <label class="text-xs text-slate-600">Rol
+            <select name="role" id="user-role" class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"></select></label>
+          <label class="text-xs text-slate-600" id="user-service-box">Servicio
+            <select name="service" id="user-service" class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"></select></label>
+          <label class="text-xs text-slate-600">Contraseña
+            <input name="password" type="password" required minlength="8" maxlength="120" autocomplete="new-password"
+                   class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" /></label>
+          <button class="btn-primary rounded-lg px-4 py-2 text-sm font-medium">Crear usuario</button>
+        </form>
+        <div id="user-table" class="overflow-auto border border-slate-100 rounded-lg"></div>
+      </article>
     </section>
   </main>
 
