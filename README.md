@@ -247,6 +247,6 @@ Detalle en [docs/01-arquitectura.md](docs/01-arquitectura.md#8-limitaciones-cono
 
 ---
 
-Hecho con 💚 en Popayán para el **Hospital Susana López de Valencia E.S.E.**
+Hecho con 💙 en Popayán para el **Hospital Susana López de Valencia E.S.E.**
 
 </div>
