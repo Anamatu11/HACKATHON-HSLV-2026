@@ -9,7 +9,8 @@ Ejecutar desde la raíz del repo:
 Rutas (contrato completo en docs/01-arquitectura.md §3):
     POST /api/auth/login  -> token JWT (público)
     GET  /api/auth/me     -> usuario de la sesión + rol + módulos permitidos
-    POST /api/query       -> agent.answer_question()   (módulo assistant)
+    POST /api/query       -> agent.answer_question()   (módulo assistant; queda en la bitácora con query_id)
+    POST /api/reports/{query_id} -> informe PDF con auditoría   (módulo reports: solo Gerencia / Dirección)
     GET  /api/kpis        -> kpis.get_kpis()            (módulo dashboard o medications)
     GET  /api/alerts      -> alerts.get_alerts()        (módulo alerts)
     GET  /api/occupancy/filters, /api/occupancy -> occupancy.*  (módulo occupancy)
@@ -24,14 +25,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 load_dotenv()
 
-from app import alerts, auth, db, kpis, occupancy, permissions  # noqa: E402  (después de load_dotenv para que lean el .env)
+from app import alerts, audit, auth, db, kpis, occupancy, permissions, report  # noqa: E402  (después de load_dotenv para que lean el .env)
 from app.agent import agent  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
@@ -81,8 +82,30 @@ def agent_error_handler(_, exc: agent.AgentError) -> JSONResponse:
 
 
 @app.post("/api/query")
-def query(req: QueryRequest, _user: dict = Depends(allow("assistant"))) -> dict:
-    return agent.answer_question(req.question)
+def query(req: QueryRequest, user: dict = Depends(allow("assistant"))) -> dict:
+    try:
+        result = agent.answer_question(req.question)
+    except agent.AgentError as e:
+        audit.log_query(user, req.question, error=str(e))     # los rechazos también se auditan
+        raise
+    record = audit.log_query(user, req.question, result=result)
+    return {**result, "query_id": record["id"]}
+
+
+@app.post("/api/reports/{query_id}")
+def download_report(query_id: str, user: dict = Depends(allow("reports"))) -> Response:
+    """Informe PDF de una consulta propia, armado solo con lo registrado en la bitácora."""
+    record = audit.find_query(query_id)
+    if record is None or record["username"] != user["username"]:
+        raise HTTPException(status_code=404, detail="No se encontró esa consulta en su historial.")
+    if record["status"] != "ok":
+        raise HTTPException(status_code=400, detail="La consulta fue rechazada; no hay datos para el informe.")
+    pdf = report.build_pdf(record, user)
+    audit.log_report(user, query_id)
+    return Response(pdf, media_type="application/pdf", headers={
+        "Content-Disposition": f'attachment; filename="{report.filename_for(record)}"',
+        "Cache-Control": "no-store",
+    })
 
 
 @app.get("/api/kpis")

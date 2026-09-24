@@ -64,6 +64,18 @@ El usuario del `.env` es siempre Dirección. Desde **Permisos** crea usuarios (c
 los activa o desactiva, les cambia el rol y marca qué módulos ve cada rol. Los cambios aplican de inmediato:
 el backend responde 403 a los módulos no permitidos y el panel oculta sus pestañas.
 
+### Informe PDF con auditoría (solo Gerencia / Dirección)
+
+Al final de cada respuesta con datos, el asistente pregunta **"¿Quieres descargar la información en un PDF tipo
+informe?"**. Con **Sí** se descarga un PDF con la pregunta, la respuesta, la gráfica, la tabla completa, las
+recomendaciones, el SQL ejecutado y una sección de **auditoría**: usuario y rol, fecha y hora, motor (IA o reglas),
+controles de seguridad aplicados, huella SHA-256 del resultado, integridad de la bitácora e historial reciente.
+
+- Exclusivo de Dirección: el módulo `reports` es fijo por rol (ni la matriz de permisos lo habilita a jefes de servicio).
+- El PDF se arma en el servidor (reportlab) solo con lo registrado en la bitácora `data/audit.jsonl` (`AUDIT_PATH`).
+  Cada consulta (respondida o rechazada) y cada descarga queda registrada, encadenada con SHA-256: si alguien edita
+  o borra una línea, el siguiente informe muestra la alerta "la bitácora fue modificada".
+
 ## Documentación
 
 | Documento | Contenido |

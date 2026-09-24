@@ -36,3 +36,10 @@ def fake_llm(monkeypatch):
 def no_llm(monkeypatch):
     from app.agent import llm
     monkeypatch.setattr(llm, "get_llm_client", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def isolated_audit_and_access(monkeypatch, tmp_path):
+    """Las pruebas nunca escriben en la bitácora ni en los permisos reales de data/."""
+    monkeypatch.setenv("AUDIT_PATH", str(tmp_path / "audit.jsonl"))
+    monkeypatch.setenv("ACCESS_PATH", str(tmp_path / "access.json"))

@@ -39,7 +39,7 @@ async function init() {
   const can = (module) => state.allowed.has(module);
   applyTabPermissions();
   setupTabs();
-  if (can("assistant")) initChat();
+  if (can("assistant")) initChat({ canReport: can("reports") });
   if (can("dashboard")) initImportPanel();
   if (can("permissions")) initPermissions();
   try {

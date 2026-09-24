@@ -53,6 +53,26 @@ export const getOccupancy = (params) => {
   const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "" && v != null));
   return api(`/api/occupancy?${query}`);
 };
+/** Descarga el informe PDF de una consulta (solo Gerencia / Dirección). Devuelve el nombre del archivo. */
+export async function downloadReport(queryId) {
+  const res = await fetch(`/api/reports/${encodeURIComponent(queryId)}`, {
+    method: "POST", headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (res.status === 401) { logout(); throw new Error("Sesión expirada"); }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || data.detail || `Error ${res.status}`);
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") || "")?.[1] || "informe_HSLV.pdf";
+  const url = URL.createObjectURL(await res.blob());
+  const link = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return name;
+}
+
 export const getPermissions = () => api("/api/permissions");
 export const savePermissions = (matrix) => api("/api/permissions", { method: "PUT", body: { matrix } });
 export const getUsers = () => api("/api/users");

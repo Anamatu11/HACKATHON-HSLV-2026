@@ -37,14 +37,18 @@ MODULES = [
     {"key": "alerts", "label": "Alertas", "detail": "Alertas y recomendaciones automáticas"},
     {"key": "medications", "label": "Medicamentos", "detail": "Inventario y rotación de medicamentos"},
     {"key": "permissions", "label": "Permisos", "detail": "Administrar usuarios y permisos por rol"},
+    {"key": "reports", "label": "Informes PDF", "detail": "Descargar informe PDF (con auditoría) de cada consulta del asistente"},
 ]
 MODULE_KEYS = [m["key"] for m in MODULES]
 
 DEFAULT_MATRIX = {
     "director": {m: True for m in MODULE_KEYS},
-    "service_head": {m: m != "permissions" for m in MODULE_KEYS},
+    "service_head": {m: m not in ("permissions", "reports") for m in MODULE_KEYS},
 }
-LOCKED = {("director", "permissions")}      # no editable: evita que Dirección se bloquee a sí misma
+# Celdas fijas (no editables desde la matriz):
+#   - Dirección conserva "permissions" para no bloquearse a sí misma.
+#   - Los informes PDF con auditoría son exclusivos de Gerencia / Dirección (decisión del hospital).
+LOCKED = {("director", "permissions"): True, ("director", "reports"): True, ("service_head", "reports"): False}
 
 USERNAME_RE = re.compile(r"^[a-z0-9._-]{3,40}$")
 PBKDF2_ITERATIONS = 200_000
@@ -65,8 +69,8 @@ def _load() -> dict:
     except (FileNotFoundError, json.JSONDecodeError):
         data = {}
     matrix = {role: {**DEFAULT_MATRIX[role], **data.get("matrix", {}).get(role, {})} for role in ROLES}
-    for role, module in LOCKED:
-        matrix[role][module] = True
+    for (role, module), value in LOCKED.items():
+        matrix[role][module] = value
     return {"matrix": matrix, "users": data.get("users", {})}
 
 

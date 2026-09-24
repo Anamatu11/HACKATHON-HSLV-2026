@@ -31,6 +31,9 @@ function showMessage(id, text) {
 }
 
 const roleLabel = (key) => state.config.roles.find((r) => r.key === key)?.label || key;
+const lockedReason = (module) => (module === "reports"
+  ? "Los informes PDF son exclusivos de Gerencia / Dirección"
+  : "Dirección conserva siempre este módulo");
 const isLocked = (role, module) => state.config.locked.some(([r, m]) => r === role && m === module);
 
 // --- Matriz --------------------------------------------------------------------------
@@ -51,7 +54,7 @@ function renderMatrix() {
         type: "checkbox", class: "w-4 h-4", style: "accent-color: var(--brand-green-dark)",
         "aria-label": `${m.label} para ${r.label}`,
         checked: state.matrix[r.key][m.key], disabled: isLocked(r.key, m.key),
-        title: isLocked(r.key, m.key) ? "Dirección conserva siempre este módulo" : null,
+        title: isLocked(r.key, m.key) ? lockedReason(m.key) : null,
         onchange: (ev) => { state.matrix[r.key][m.key] = ev.target.checked; },
       }))),
     ]))),

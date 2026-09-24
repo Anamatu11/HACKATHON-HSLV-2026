@@ -1,5 +1,5 @@
 // Chat con el agente NL2SQL: respuesta + gráfico + tabla + SQL desplegable + recomendaciones.
-import { askAgent } from "./api.js";
+import { askAgent, downloadReport } from "./api.js";
 import { chartFromAnswer } from "./charts.js";
 import { dataTable, el } from "./ui.js";
 
@@ -17,8 +17,11 @@ const SOURCE_LABELS = {
 const TABLE_PREVIEW_ROWS = 10;
 
 const $ = (id) => document.getElementById(id);
+const options = { canReport: false };
 
-export function initChat() {
+/** canReport: el rol puede descargar informes PDF (solo Gerencia / Dirección; el backend lo vuelve a verificar). */
+export function initChat({ canReport = false } = {}) {
+  options.canReport = canReport;
   $("suggestions").replaceChildren(...SUGGESTIONS.map((q) =>
     el("button", { class: "chip px-3 py-1.5 text-sm text-left", type: "button", onclick: () => ask(q) }, q)));
   $("chat-form").addEventListener("submit", (e) => {
@@ -95,5 +98,40 @@ function renderAnswer(a) {
   if (a.sources?.length) {
     box.append(el("p", { class: "text-xs text-slate-400" }, `Fuente: ${a.sources.join(" · ")}`));
   }
+  if (options.canReport && a.query_id && a.sql) box.append(reportOffer(a.query_id));
+  return box;
+}
+
+// Al final de la respuesta: "¿Quieres descargar la información en un PDF tipo informe?" [Sí] [No]
+function reportOffer(queryId) {
+  const status = el("span", { class: "text-sm text-slate-600", role: "status" });
+  const yes = el("button", { class: "btn-primary rounded-lg px-3 py-1.5 text-sm font-medium", type: "button" },
+                 "Sí, descargar PDF");
+  const no = el("button", { class: "chip px-3 py-1.5 text-sm", type: "button" }, "No, gracias");
+  const box = el("div", { class: "report-offer rounded-lg p-3 flex flex-wrap items-center gap-3" }, [
+    el("p", { class: "text-sm font-medium flex-1 min-w-[220px]", style: "color: var(--brand-navy)" },
+       "¿Quieres descargar la información en un PDF tipo informe?"),
+    yes, no, status,
+  ]);
+
+  yes.addEventListener("click", async () => {
+    yes.disabled = no.disabled = true;
+    yes.textContent = "Generando informe…";
+    try {
+      const name = await downloadReport(queryId);
+      no.remove();
+      yes.textContent = "Descargar de nuevo";
+      status.textContent = `✓ Informe descargado: ${name}`;
+    } catch (e) {
+      yes.textContent = "Reintentar";
+      status.textContent = `No se pudo generar el informe: ${e.message}`;
+    } finally {
+      yes.disabled = no.disabled = false;
+    }
+  });
+  // "No": se retira la pregunta pero queda un enlace discreto por si cambia de opinión
+  no.addEventListener("click", () => box.replaceChildren(
+    el("button", { class: "text-xs underline", style: "color: var(--brand-green-dark)", type: "button",
+                   onclick: () => box.replaceWith(reportOffer(queryId)) }, "Descargar informe PDF de esta consulta")));
   return box;
 }

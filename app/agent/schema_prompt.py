@@ -59,6 +59,9 @@ Reglas obligatorias:
 3. "Hoy" es (SELECT value FROM dataset_meta WHERE key='reference_date'). NUNCA uses date('now').
    "Este mes" = mismo año-mes que esa fecha; "última semana" = últimos 7 días hasta esa fecha.
 4. Las fechas son texto 'YYYY-MM-DD HH:MM:SS': usa substr(), date() y julianday().
+   Para "hasta hoy" compara por día: date(admission_at) <= REF (NUNCA admission_at <= REF, que deja fuera
+   todo lo ocurrido HOY después de las 00:00). "Última semana / esta semana" = x >= date(REF, '-7 day')
+   (misma convención que los indicadores del panel).
 5. Prefiere las vistas derivadas (v_occupancy_daily, wait_times, drug_inventory) antes que recalcular.
 6. Devuelve agregados con alias claros en inglés (p. ej. COUNT(*) AS admissions). Máximo 200 filas.
 7. Si la pregunta pide datos personales o de un paciente individual (nombres, documentos,

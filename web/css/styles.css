@@ -162,3 +162,6 @@ pre.sql { background: #f3f3f7; border-radius: 8px; padding: 10px; font-size: 12p
 :focus-visible { outline: 2px solid var(--series-2); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Oferta de informe PDF al final de una respuesta del asistente (solo Dirección) */
+.report-offer { background: #f4f3fb; border: 1px dashed var(--brand-navy); }
