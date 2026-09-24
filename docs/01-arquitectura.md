@@ -76,6 +76,21 @@ sequenceDiagram
 **Por qué el plan B va primero:** las 4 preguntas de la demo se resuelven por reglas, con SQL probado.
 Si el LLM falla, se cae la red o se agota la cuota, la demo sigue funcionando. El LLM cubre la "cola larga".
 
+### 2.1 Enrutamiento de intención (preguntas de datos vs. conceptuales)
+
+| Orden | Tipo de pregunta | Cómo se detecta | Quién responde | Sin LLM |
+|-------|------------------|-----------------|----------------|---------|
+| 0 | Datos personales | términos como cédula, nombre, documento + paciente | rechazo | ✅ |
+| 1 | Definición ("¿qué es una EPS?", "diferencia entre…") | frase de definición al inicio + término del glosario | `glossary.py` (glosario HIS oficial + indicadores del panel); el LLM solo la redacta | ✅ plantilla fiel |
+| 2 | Pregunta frecuente de datos | palabras clave de `fallback.RULES` | SQL fijo verificado | ✅ |
+| 3 | Saludo / ayuda | "hola", "qué puedes hacer"… | mensaje de capacidades | ✅ |
+| 4 | Cualquier otra | — | LLM con esquema + glosario: responde SQL, o `TEXT:` si es conceptual | ❌ mensaje guía |
+
+El glosario (~35 términos del PDF + 6 indicadores del panel) cabe completo en el prompt: no se necesita RAG con
+embeddings. Cada respuesta cita su fuente en `sources` (glosario oficial, definiciones del panel o `hospital.db`).
+"Natural" = el LLM redacta como un analista que le habla a un directivo: número clave primero, una frase de
+interpretación, términos técnicos explicados, sin mencionar tablas ni SQL.
+
 ---
 
 ## 3. Contrato de la API

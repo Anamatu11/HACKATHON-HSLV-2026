@@ -68,6 +68,54 @@ def test_no_rule_and_no_llm_explains_what_to_do(no_llm):
         answer_question(FREE_QUESTION)
 
 
+def test_glossary_question_answers_without_llm(no_llm):
+    r = answer_question("¿Qué es una EPS?")
+    assert r["source"] == "glossary"
+    assert "Entidad Promotora de Salud" in r["answer"]
+    assert r["sql"] == "" and r["rows"] == [] and r["chart"]["type"] == "none"
+    assert r["sources"] == ["Glosario de Términos del Sector Salud HIS"]
+
+
+def test_glossary_answer_is_drafted_naturally_by_llm(fake_llm):
+    fake = fake_llm("Una EPS es, en pocas palabras, la aseguradora de salud.")
+    r = answer_question("¿Qué es una EPS?")
+    assert r["answer"] == "Una EPS es, en pocas palabras, la aseguradora de salud."
+    assert "Entidad Promotora de Salud" in fake.calls[0][1]   # el LLM recibe la definición oficial
+
+
+def test_glossary_falls_back_to_template_if_llm_fails(monkeypatch):
+    from app.agent import llm
+
+    class Broken:
+        def complete(self, system, user):
+            raise RuntimeError("sin red")
+
+    monkeypatch.setattr(llm, "get_llm_client", lambda: Broken())
+    assert "Entidad Promotora de Salud" in answer_question("¿Qué es una EPS?")["answer"]
+
+
+def test_panel_indicator_question_answers_without_llm(no_llm):
+    r = answer_question("¿Qué es la ocupación física?")
+    assert r["source"] == "glossary"
+    assert "camas físicas" in r["answer"]
+    assert r["sources"] == ["Definiciones de indicadores del panel HSLV"]
+
+
+def test_greeting_explains_capabilities(no_llm):
+    r = answer_question("Hola, ¿qué puedes hacer?")
+    assert r["source"] == "assistant"
+    assert "glosario" in r["answer"].lower()
+
+
+@requires_db
+def test_llm_can_answer_conceptual_questions_with_text(fake_llm):
+    fake = fake_llm("TEXT: La ocupación física se calcula sobre camas reales, sin contar las virtuales.")
+    r = answer_question("¿Por qué la ocupación física puede pasar de 100%?")
+    assert r["source"] == "llm" and r["sql"] == ""
+    assert r["answer"].startswith("La ocupación física")
+    assert "Glosario" in fake.calls[0][0]   # el glosario va en el prompt del sistema
+
+
 def test_chart_line_for_time_series():
     chart = choose_chart(["census_date", "occupancy_pct"], [["2026-09-01", 50.0], ["2026-09-02", 55.0]])
     assert chart == {"type": "line", "x": "census_date", "y": "occupancy_pct"}

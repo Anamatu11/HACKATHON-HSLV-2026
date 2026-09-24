@@ -8,7 +8,12 @@ const SUGGESTIONS = [
   "¿Cuáles son los medicamentos con menos de 5 días de inventario?",
   "¿Cuál es el tiempo de espera promedio en urgencias en la última semana?",
   "¿Qué servicio tiene más pacientes ingresados este mes?",
+  "¿Qué diferencia hay entre una EPS y una IPS?",
+  "Explícame qué es el triage",
 ];
+const SOURCE_LABELS = {
+  rules: "Consulta verificada", llm: "Generada por IA", glossary: "Glosario HIS", assistant: "Asistente",
+};
 const TABLE_PREVIEW_ROWS = 10;
 
 const $ = (id) => document.getElementById(id);
@@ -48,14 +53,13 @@ function append(node) {
 }
 
 function renderAnswer(a) {
-  const sourceLabel = a.source === "rules" ? "Consulta verificada" : "Generada por IA";
   const canvasBox = el("div", { class: "chart-box mt-3" });
   const box = el("div", { class: "bubble-bot p-4 space-y-3" }, [
     el("div", { class: "flex items-center gap-2 text-xs text-slate-500" }, [
-      el("span", { class: "status status-ok" }, sourceLabel),
-      el("span", {}, `${a.rows.length} fila${a.rows.length === 1 ? "" : "s"}`),
+      el("span", { class: "status status-ok" }, SOURCE_LABELS[a.source] || a.source),
+      a.sql ? el("span", {}, `${a.rows.length} fila${a.rows.length === 1 ? "" : "s"}`) : null,
     ]),
-    el("p", { class: "text-base", style: "color: var(--text-primary)" }, a.answer),
+    el("p", { class: "text-base whitespace-pre-line", style: "color: var(--text-primary)" }, a.answer),
   ]);
 
   if (a.chart && a.chart.type !== "none" && a.rows.length > 1) {
@@ -75,16 +79,21 @@ function renderAnswer(a) {
     ]));
   }
 
-  box.append(el("details", {}, [
-    el("summary", { class: "text-sm font-medium text-slate-600" }, "Ver consulta SQL"),
-    el("pre", { class: "sql mt-2" }, a.sql),
-  ]));
+  if (a.sql) {
+    box.append(el("details", {}, [
+      el("summary", { class: "text-sm font-medium text-slate-600" }, "Ver consulta SQL"),
+      el("pre", { class: "sql mt-2" }, a.sql),
+    ]));
+  }
 
   if (a.recommendations?.length) {
     box.append(el("div", { class: "rounded-lg p-3", style: "background: var(--status-ok-bg)" }, [
       el("p", { class: "text-sm font-semibold mb-1", style: "color: var(--brand-green-dark)" }, "Recomendaciones"),
       el("ul", { class: "list-disc pl-5 text-sm space-y-1" }, a.recommendations.map((r) => el("li", {}, r))),
     ]));
+  }
+  if (a.sources?.length) {
+    box.append(el("p", { class: "text-xs text-slate-400" }, `Fuente: ${a.sources.join(" · ")}`));
   }
   return box;
 }

@@ -54,7 +54,8 @@ def _summarize_wait(rows: list[dict]) -> str:
     worst = max(rows, key=lambda r: r["avg_wait_min"])
     return (f"En la última semana la espera promedio en urgencias fue de "
             f"{fmt_number(rows[0]['overall_avg_wait_min'])} minutos ({fmt_number(total)} atenciones). "
-            f"El triage {worst['triage_level']} tuvo la mayor espera: {fmt_number(worst['avg_wait_min'])} min.")
+            f"El triage {worst['triage_level']} tuvo la mayor espera: {fmt_number(worst['avg_wait_min'])} min "
+            "(el triage 1 es el más urgente y el 4 el menos urgente).")
 
 
 def _summarize_services(rows: list[dict]) -> str:

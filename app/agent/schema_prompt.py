@@ -14,10 +14,11 @@ from contextlib import closing
 from functools import lru_cache
 
 from app import db
-from app.agent import fallback
+from app.agent import fallback, glossary
 from app.agent.sql_guard import FORBIDDEN_COLUMNS
 
 REFUSE_TOKEN = "REFUSE"
+TEXT_PREFIX = "TEXT:"
 MAX_ROWS_IN_ANSWER_PROMPT = 20
 
 # Tabla/vista permitida -> para qué sirve (ayuda al LLM a elegir bien)
@@ -41,6 +42,10 @@ Conviertes preguntas en español a UNA consulta SQLite de solo lectura.
 
 Reglas obligatorias:
 1. Responde SOLO con la consulta SQL: sin explicación, sin markdown.
+   EXCEPCIÓN: si la pregunta es conceptual y no necesita datos (qué significa un término del sector salud,
+   cómo se calcula un indicador del panel, qué limitaciones tienen los datos), responde "{TEXT_PREFIX} " seguido
+   de una explicación breve (2 a 4 frases), natural y en español, apoyada en el glosario y en las
+   definiciones de indicadores de abajo. No menciones tablas ni SQL en ese texto.
 2. Solo SELECT o WITH. Usa únicamente las tablas y columnas del esquema.
 3. "Hoy" es (SELECT value FROM dataset_meta WHERE key='reference_date'). NUNCA uses date('now').
    "Este mes" = mismo año-mes que esa fecha; "última semana" = últimos 7 días hasta esa fecha.
@@ -70,9 +75,10 @@ def build_few_shot_text() -> str:
 
 
 def build_system_prompt() -> str:
-    """Arma el prompt del sistema: reglas + esquema + few-shot."""
+    """Arma el prompt del sistema: reglas + esquema + indicadores + glosario + few-shot."""
     return (f"{RULES_TEXT}\nFecha de referencia (hoy): {db.get_reference_date()}\n\n"
-            f"Esquema:\n{build_schema_text()}\n\nEjemplos:\n\n{build_few_shot_text()}")
+            f"Esquema:\n{build_schema_text()}\n\n{KPI_DEFINITIONS}\n\n{glossary.glossary_prompt_text()}\n\n"
+            f"Ejemplos:\n\n{build_few_shot_text()}")
 
 
 def build_retry_prompt(question: str, sql: str, error: str) -> str:
@@ -81,10 +87,34 @@ def build_retry_prompt(question: str, sql: str, error: str) -> str:
             "Corrige la consulta. Responde solo con el SQL corregido.")
 
 
-ANSWER_SYSTEM_PROMPT = """Eres el asistente de gestión del Hospital Susana López de Valencia.
-Redactas respuestas para directivos: 1 a 3 frases en español, con el número clave primero.
-Usa solo los datos entregados; no inventes cifras. Formato numérico colombiano (1.169 y 58,7).
-Si los datos vienen de drug_inventory, aclara que el inventario es simulado."""
+ANSWER_SYSTEM_PROMPT = """Eres el asistente de gestión del Hospital Susana López de Valencia y le hablas a un
+directivo o jefe de servicio, como lo haría un analista cercano y claro.
+
+Cómo responder:
+- Empieza con la respuesta directa y el número clave. Luego, si aporta, una frase que lo interprete
+  (qué significa, con qué se compara, qué conviene mirar).
+- 1 a 3 frases en español natural. Nada de jerga de bases de datos: no menciones tablas, columnas ni SQL.
+- Si aparece un término técnico del sector (triage, EPS, CIE-10, régimen), explícalo en pocas palabras.
+- Usa solo los datos entregados; no inventes cifras. Formato numérico colombiano (1.169 y 58,7).
+- Si los datos son de inventario de medicamentos, aclara que el inventario es simulado."""
+
+GLOSSARY_SYSTEM_PROMPT = """Eres el asistente del Hospital Susana López de Valencia. Explicas términos del sector
+salud colombiano a directivos que no son del área clínica.
+
+Cómo responder:
+- 2 a 4 frases, en español natural y cercano, como se lo explicarías a un colega.
+- Básate SOLO en las definiciones entregadas (glosario oficial HIS); no inventes datos.
+- Si preguntan por una diferencia, contrasta los términos directamente.
+- Si la definición trae una nota "En este panel", menciónala: conecta el concepto con los datos del hospital."""
+
+# Los indicadores del panel viven en glossary.PANEL_TERMS (una sola fuente); aquí solo las limitaciones.
+KPI_DEFINITIONS = """Limitaciones de los datos (decirlas cuando apliquen):
+- Servicio del ingreso = cama registrada; los traslados internos no se ven.
+- Datos de mayo a septiembre de 2026; septiembre llega hasta el 21 (hoy)."""
+
+
+def build_glossary_prompt(question: str, definitions: str) -> str:
+    return f"Pregunta: {question}\n\nDefiniciones del glosario oficial:\n{definitions}"
 
 
 def build_answer_prompt(question: str, columns: list[str], rows: list[list]) -> str:
