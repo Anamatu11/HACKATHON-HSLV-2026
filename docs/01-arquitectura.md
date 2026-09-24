@@ -284,7 +284,7 @@ Tablas derivadas que usa el agente antes que recalcular: `v_occupancy_daily`, `w
 | Entorno | Cómo | Estado |
 |---------|------|--------|
 | Local (obligatorio) | `uvicorn app.main:app` sirve API + `web/` | Plan principal de la demo |
-| Nube (opcional) | Render/Railway, BD generada en el build | Solo si sobra tiempo |
+| Nube | Railway con `Dockerfile` + `railway up --no-gitignore`; la BD se genera en el build desde los crudos comprimidos (`deploy/pack_raw.py`) | En línea: https://hackathon2026fuphslv-production.up.railway.app |
 
 ---
 
