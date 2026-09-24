@@ -42,3 +42,7 @@ dist/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# --- Deploy ---
+# Crudos comprimidos para `railway up` (datos del hospital: nunca a git)
+deploy/raw/

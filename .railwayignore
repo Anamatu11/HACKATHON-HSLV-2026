@@ -1,0 +1,17 @@
+# `railway up --no-gitignore` usa SOLO este archivo, para poder subir deploy/raw/
+# (ignorado en git). Todo lo demás que git ignora se excluye aquí también.
+.env
+.env.*
+.git/
+.venv/
+venv/
+DATOS/
+data/
+docs/
+tests/
+**/__pycache__/
+.pytest_cache/
+.claude/
+.vscode/
+.idea/
+*.pdf
