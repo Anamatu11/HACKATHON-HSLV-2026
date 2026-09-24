@@ -54,3 +54,14 @@ def test_medications_table_has_no_personal_data():
     row = kpis.get_kpis()["medications_table"][0]
     assert set(row) == {"item_code", "item_name", "stock_units", "avg_daily_consumption",
                         "days_of_inventory", "expiry_date", "status"}
+
+
+def test_admissions_table_has_no_personal_data():
+    body = kpis.get_kpis()
+    assert "admissions_table" in body
+    assert len(body["admissions_table"]) > 0
+    row = body["admissions_table"][0]
+    # Garantiza que nunca se expongan datos personales
+    assert {"patient_id", "patient_name", "document_type"} & set(row) == set()
+    assert {"admission_at", "service", "sub_service", "sex", "age_group", "diagnosis_chapter"} <= set(row)
+

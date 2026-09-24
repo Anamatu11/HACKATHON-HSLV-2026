@@ -12,7 +12,7 @@ client = TestClient(app)
 def headers(monkeypatch):
     monkeypatch.setenv("AUTH_USERNAME", "admin")
     monkeypatch.setenv("AUTH_PASSWORD", "hslv2026")
-    monkeypatch.setenv("AUTH_SECRET", "test-secret")
+    monkeypatch.setenv("AUTH_SECRET", "test-secret-hslv-2026-very-secure-32-bytes")
     token = client.post("/api/auth/login", json={"username": "admin", "password": "hslv2026"}).json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 

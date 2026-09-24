@@ -23,3 +23,29 @@ def test_average_occupancy_question_is_not_confused_with_today():
 def test_rephrased_question_still_matches():
     rule = match_rule("camas uci ocupadas")
     assert rule is not None and rule.name == "uci_occupancy_today"
+
+
+def test_surgery_performance_rule_matches():
+    rule = match_rule("¿Cuántas cirugías programadas se realizaron?")
+    assert rule is not None and rule.name == "surgery_performance"
+
+
+def test_top_specialties_rule_matches():
+    rule = match_rule("¿Cuáles son las especialidades con mayor demanda?")
+    assert rule is not None and rule.name == "top_specialties"
+
+
+def test_avg_stay_rule_matches():
+    rule = match_rule("¿Cuál es la estancia promedio en hospitalización?")
+    assert rule is not None and rule.name == "avg_length_of_stay"
+
+
+def test_top_medications_rotation_matches():
+    rule = match_rule("rotacion de medicamentos este mes")
+    assert rule is not None and rule.name == "top_medications_rotation"
+
+
+def test_er_root_cause_matches():
+    rule = match_rule("¿Cuál es la causa de la espera en urgencias?")
+    assert rule is not None and rule.name == "er_root_cause"
+

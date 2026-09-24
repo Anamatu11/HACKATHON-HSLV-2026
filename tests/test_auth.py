@@ -15,7 +15,7 @@ client = TestClient(app)
 def demo_credentials(monkeypatch):
     monkeypatch.setenv("AUTH_USERNAME", "admin")
     monkeypatch.setenv("AUTH_PASSWORD", "hslv2026")
-    monkeypatch.setenv("AUTH_SECRET", "test-secret")
+    monkeypatch.setenv("AUTH_SECRET", "test-secret-hslv-2026-very-secure-32-bytes")
 
 
 def login(username="admin", password="hslv2026"):
@@ -56,7 +56,7 @@ def test_invalid_token_is_rejected():
 
 
 def test_expired_token_is_rejected():
-    expired = jwt.encode({"sub": "admin", "exp": int(time.time()) - 10}, "test-secret", algorithm="HS256")
+    expired = jwt.encode({"sub": "admin", "exp": int(time.time()) - 10}, "test-secret-hslv-2026-very-secure-32-bytes", algorithm="HS256")
     assert client.get("/api/auth/me", headers={"Authorization": f"Bearer {expired}"}).status_code == 401
 
 
