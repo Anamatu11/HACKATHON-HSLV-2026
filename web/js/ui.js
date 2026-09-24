@@ -41,7 +41,7 @@ const COLUMN_LABELS = {
   days_of_inventory: "Días de inventario", expiry_date: "Vence", triage_level: "Triage", attentions: "Atenciones",
   avg_wait_min: "Espera promedio (min)", overall_avg_wait_min: "Espera general (min)", specialty: "Especialidad",
   units: "Unidades", month: "Mes", census_date: "Fecha", diagnosis_chapter: "Capítulo CIE-10",
-  admission_class: "Clase de ingreso", scheduled: "Programadas", performed: "Realizadas", age_group: "Grupo de edad",
+  admission_class: "Clase de ingreso", diagnosis_name: "Diagnóstico", diagnosis_code: "Código CIE-10", scheduled: "Programadas", performed: "Realizadas", age_group: "Grupo de edad",
 };
 export const columnLabel = (c) => COLUMN_LABELS[c] || c.replace(/_/g, " ");
 

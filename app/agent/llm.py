@@ -13,7 +13,7 @@ import os
 from typing import Protocol
 
 DEFAULT_MODELS = {
-    "anthropic": "claude-3-5-sonnet-20241022",
+    "anthropic": "claude-sonnet-5",
     "openai": "gpt-4o-mini",
     "ollama": "sqlcoder:7b",
     "local": "sqlcoder:7b",

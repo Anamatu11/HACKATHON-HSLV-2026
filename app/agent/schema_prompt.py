@@ -24,6 +24,9 @@ MAX_ROWS_IN_ANSWER_PROMPT = 20
 # Tabla/vista permitida -> para qué sirve (ayuda al LLM a elegir bien)
 ALLOWED_TABLES = {
     "v_admissions_safe": "ingresos/episodios sin datos personales; diagnóstico solo como capítulo CIE-10 (diagnosis_chapter)",
+    "admissions": "ingresos CON diagnóstico específico: diagnosis_code (CIE-10 sin punto, p. ej. 'K352') y diagnosis_name "
+                  "(en MAYÚSCULAS, p. ej. 'APENDICITIS AGUDA, NO ESPECIFICADA'). Úsala SOLO para conteos o rankings "
+                  "por diagnóstico (ver regla 9); para lo demás prefiere v_admissions_safe",
     "v_occupancy_daily": "ocupación diaria por servicio: occupied_beds, capacity_beds, occupancy_pct, occupancy_physical_pct (>100% = camas virtuales)",
     "bed_capacity": "capacidad ESTIMADA de camas por servicio",
     "v_occupancy_sub_daily": "ocupación diaria por servicio Y subservicio (UCI Adultos/Neonatal/Pediátrica, Intermedio...). "
@@ -62,6 +65,16 @@ Reglas obligatorias:
    fechas de nacimiento, diagnóstico de una persona), responde exactamente: {REFUSE_TOKEN}
 8. Sintaxis estricta SQLite: NUNCA uses ILIKE (usa LIKE o LOWER()), NUNCA uses CONCAT() (usa ||),
    NUNCA uses DATE_TRUNC o DATEDIFF (usa substr(), date() o julianday()).
+9. Diagnóstico específico (una enfermedad: apendicitis, bronquiolitis, preeclampsia, neumonía...): está en
+   admissions.diagnosis_name / diagnosis_code. Búscalo por nombre (diagnosis_name LIKE '%APENDICITIS%', raíz en
+   mayúsculas y sin tildes para no fallar) o por prefijo CIE-10 (diagnosis_code LIKE 'K35%'). Permitido SOLO en
+   consultas agregadas: COUNT(*) / COUNT(DISTINCT admission_id), porcentajes, promedios, o GROUP BY diagnosis_name
+   con un conteo. Nunca devuelvas una fila por ingreso ni pongas alias a diagnosis_name / diagnosis_code.
+   Si la pregunta menciona una enfermedad, NO respondas que el dato no existe: consúltalo así.
+10. Procedimientos y cirugías REALIZADAS están en services (service_name = nombre CUPS en mayúsculas; area
+   'QUIROFANOS - ...' para cirugía). Ej.: apendicectomías = service_name LIKE '%APENDICECTOM%', contando
+   COUNT(DISTINCT admission_id). Si preguntan cuántas <enfermedad> "se realizaron / operaron", cuenta el
+   procedimiento en services y, en la misma consulta, los ingresos con ese diagnóstico en admissions.
 """
 
 
@@ -74,6 +87,15 @@ def build_schema_text() -> str:
             cols = [f"{name} {ctype}".strip() for _, name, ctype, *_ in con.execute(f"PRAGMA table_info({table})")
                     if name not in FORBIDDEN_COLUMNS]
             lines.append(f"- {table}: {purpose}\n  columnas: {', '.join(cols)}")
+        # Valores exactos de servicio -> subservicio: sin ellos el LLM filtra con LIKE '%NEONATAL%' y mezcla
+        # UCI Neonatal con Intermedio y Básico Neonatal.
+        pairs = con.execute("SELECT service, sub_service FROM admissions GROUP BY 1, 2 ORDER BY 1, 2").fetchall()
+    by_service: dict[str, list[str]] = {}
+    for service, sub in pairs:
+        by_service.setdefault(service, []).append(f"'{sub}'")
+    values = "\n".join(f"  {service}: {', '.join(subs)}" for service, subs in by_service.items())
+    lines.append("Valores exactos de service -> sub_service (filtra con = sobre estos valores; "
+                 f"'UCI neonatal' es SOLO sub_service = 'UNIDAD DE CUIDADO INTENSIVO NEONATAL'):\n{values}")
     return "\n".join(lines)
 
 

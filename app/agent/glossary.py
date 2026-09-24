@@ -43,8 +43,9 @@ GLOSSARY: list[dict] = [
     {"term": "CIE-10", "category": "Siglas y sistemas", "aliases": ["cie 10", "cie10", "clasificacion internacional de enfermedades"],
      "definition": "Clasificación Internacional de Enfermedades, décima versión: catálogo internacional de códigos "
                    "de diagnóstico.",
-     "data_note": "En el panel los diagnósticos se agrupan por capítulo (la letra inicial del código: J = respiratorio, "
-                  "O = embarazo, S/T = traumatismos) para no exponer diagnósticos individuales."},
+     "data_note": "En el panel el diagnóstico se consulta por capítulo (la letra inicial del código: J = respiratorio, "
+                  "O = embarazo, S/T = traumatismos) o por diagnóstico específico (p. ej. apendicitis, K35), "
+                  "siempre en cifras agregadas: nunca el diagnóstico de un paciente individual."},
 
     # --- Documentos de identificación ---
     {"term": "CC", "category": "Documentos de identificación", "aliases": ["cedula de ciudadania"],

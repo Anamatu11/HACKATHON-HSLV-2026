@@ -221,9 +221,12 @@ si la pregunta pide datos personales, negarse.
 - Solo una sentencia; debe empezar por `SELECT` o `WITH`. Rechazar `INSERT/UPDATE/DELETE/DROP/ALTER/ATTACH/PRAGMA/CREATE`.
 - Abrir SQLite en modo solo lectura: `sqlite3.connect("file:data/hospital.db?mode=ro", uri=True)`.
 - Forzar `LIMIT 200` si no hay LIMIT. Timeout de consulta.
-- **Privacidad:** columnas prohibidas en el resultado: `patient_id`, `birth_date`, `diagnosis_name`, `diagnosis_code`,
-  `bed_code`, `bed_name`. Si aparecen, rechazar o reescribir (agregados sí están permitidos: COUNT por diagnóstico
-  agregado a capítulo CIE-10 está bien; listar pacientes con su diagnóstico no).
+- **Privacidad:** columnas prohibidas en el resultado: `patient_id`, `birth_date`, `bed_code`, `bed_name`.
+  El diagnóstico específico (`diagnosis_name`, `diagnosis_code` de `admissions`) se permite **solo en consultas
+  agregadas** (decisión del equipo): "¿cuántas apendicitis?" o "top 10 diagnósticos de UCI" sí; listar ingresos o
+  pacientes con su diagnóstico no. El guard exige que el SELECT final agregue (COUNT/SUM/AVG o GROUP BY) y que no
+  devuelva ni agrupe por identificadores de fila (admission_id, fechas exactas…), y prohíbe alias y GROUP_CONCAT
+  sobre el diagnóstico.
 - Si el SQL falla, reintentar una vez enviando el error al LLM.
 
 **Respuesta al frontend:** `answer` (1–3 frases con el número clave), `sql` (mostrarlo colapsable: da confianza al jurado),
