@@ -12,6 +12,7 @@ Rutas (contrato completo en docs/01-arquitectura.md §3):
     POST /api/query       -> agent.answer_question()   (requiere sesión)
     GET  /api/kpis        -> kpis.get_kpis()            (requiere sesión)
     GET  /api/alerts      -> alerts.get_alerts()        (requiere sesión)
+    GET  /api/occupancy/filters, /api/occupancy -> occupancy.*  (requiere sesión)
     GET  /api/health      -> estado de la BD y del proveedor LLM (público)
     /                     -> web/ (index.html = login, dashboard.html, assets)
 """
@@ -29,7 +30,7 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 
-from app import alerts, auth, db, kpis  # noqa: E402  (después de load_dotenv para que lean el .env)
+from app import alerts, auth, db, kpis, occupancy  # noqa: E402  (después de load_dotenv para que lean el .env)
 from app.agent import agent  # noqa: E402
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
@@ -89,6 +90,22 @@ def get_kpis(_user: dict = Depends(auth.require_user)) -> dict:
 @app.get("/api/alerts")
 def get_alerts(_user: dict = Depends(auth.require_user)) -> list[dict]:
     return alerts.get_alerts()
+
+
+@app.get("/api/occupancy/filters")
+def get_occupancy_filters(_user: dict = Depends(auth.require_user)) -> dict:
+    return occupancy.get_filters()
+
+
+@app.get("/api/occupancy")
+def get_occupancy(service: str | None = None, sub_service: str | None = None, specialty: str | None = None,
+                  granularity: str = "daily", start: str | None = None, end: str | None = None,
+                  _user: dict = Depends(auth.require_user)):
+    try:
+        return occupancy.get_occupancy(service or None, sub_service or None, specialty or None,
+                                       granularity, start or None, end or None)
+    except ValueError as e:   # filtro inválido -> 400 con mensaje claro
+        return JSONResponse(status_code=400, content={"error": str(e)})
 
 
 # Se monta al final para que /api/* tenga prioridad. html=True sirve index.html en "/".

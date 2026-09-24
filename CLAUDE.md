@@ -125,7 +125,7 @@ python etl/build_db.py --raw DATOS --out data/hospital.db   # ~20 s
 | `admissions` | 17.781 | ingreso/episodio (**tabla central**) | admission_id PK, admission_number, patient_id FK, admission_class (Ambulatorio = urgencias sin hospitalizar / Hospitalario), admission_route, risk_type, admission_at, hospitalization_at, triage_id FK, bed_code, bed_name, is_virtual_bed, service, sub_service, diagnosis_code (CIE-10), diagnosis_name, diagnosis_chapter (letra CIE-10), age_years, age_group, last_activity_at, length_of_stay_days |
 | `triage` | 16.106 | evento de triage | triage_id PK, patient_id, triage_at, triage_code, triage_label, triage_level (1=emergencia…4), triage_area, systolic_bp, diastolic_bp, heart_rate, respiratory_rate, temperature_c |
 | `first_care` | 17.375 | ingreso | admission_id PK/FK, first_care_at (primera atención médica) |
-| `services` | 582.357 | línea de servicio prestado | line_id PK, admission_id FK, service_code (CUPS), service_name, quantity, performed_at, area_code, area (p.ej. "QUIROFANOS - CIRUGIA GENERAL", "APOYO DIAGNOSTICO - LABORATORIO CLINICO"), specialty |
+| `services` | 582.357 | línea de servicio prestado | line_id PK, admission_id FK, service_code (CUPS), service_name, quantity, performed_at, area_code, area (p.ej. "QUIROFANOS - CIRUGIA GENERAL", "APOYO DIAGNOSTICO - LABORATORIO CLINICO"), service_category (por prefijo de area_code: Urgencias, Hospitalización / UCI, Quirófanos, Apoyo diagnóstico…), specialty, specialty_group (top-10 especialidades ≈ 94% de líneas; resto "Otras especialidades") |
 | `medications` | 579.465 | línea dispensada | line_id PK, admission_id FK, item_code, item_name, item_type ('Medicamento' si código ATC / 'Dispositivo/Insumo'), quantity, dispensed_at, area, specialty |
 | `surgery_schedule` | 13.046 | procedimiento programado | schedule_id (agrupa una cirugía), patient_id, admission_id (nullable), procedure_code, in_dataset (1 si el ingreso existe en admissions), was_billed (1 si el procedimiento aparece cobrado en services para ese ingreso ⇒ realizada) |
 
@@ -136,11 +136,15 @@ python etl/build_db.py --raw DATOS --out data/hospital.db   # ~20 s
 | `wait_times` | Por ingreso con triage: service, triage_level, triage_area, triage_at, first_care_at, **wait_minutes** = first_care_at − triage_at (filtrado 0–1440 min) |
 | `bed_census_daily` | census_date, service, occupied_beds: pacientes presentes a las 12:00 (entre hospitalization_at y last_activity_at) |
 | `bed_capacity` | service, capacity_beds (camas distintas usadas), physical_beds (sin virtuales), is_estimated=1 |
-| `v_occupancy_daily` | census + capacidad: occupancy_pct, occupancy_physical_pct (>100% = sobreocupación con camas virtuales) |
+| `v_occupancy_daily` | census + capacidad: occupancy_pct, occupancy_physical_pct (>100% = sobreocupación con camas virtuales). **Solo para "hoy"** (la historia de UCI está subestimada) |
+| `bed_census_sub_daily` / `bed_capacity_sub` | Censo y capacidad por **servicio + subservicio** (19 subservicios: UCI Adultos/Neonatal/Pediátrica, Intermedio Adultos/Neonatal/Pediátrico, Hospitalización 1-3, Urgencias Adultos/Pediatría/Ginecología…) |
+| `stays_census_daily` | Censo de unidades críticas reconstruido con estancias facturadas (recupera la historia de trasladados; subcuenta los últimos ~14 días) |
+| `v_occupancy_sub_daily` | **Ocupación histórica recomendada**: por subservicio; occupied_beds = MAX(cama registrada, estancias); census_source indica cuál se usó |
+| `specialty_census_daily` | census_date, specialty_group, patients: hospitalizados presentes atendidos por cada especialidad (p. ej. Medicina Interna, que no es servicio de camas) |
 | `stays` | Líneas INTERNACIÓN facturadas: admission_id, unit (UCI Neonatal, UCI Adultos, Intermedio…), start_at, days, end_at_estimated. Úsala para estancia por unidad de cuidado, **no** para ocupación de "hoy" (se factura al egreso) |
 | `drug_inventory` | **SIMULADO** (semilla fija): item_code, item_name, avg_daily_consumption (real, últimos 30 días), stock_units, days_of_inventory, expiry_date, is_simulated=1 |
 | `v_admissions_safe` | Ingresos sin patient_id ni diagnóstico específico (solo capítulo CIE-10) |
-| `dataset_meta` | key/value: reference_date, data_start, notas de estimación |
+| `dataset_meta` | key/value: reference_date, data_start, census_reliable_from (2026-06-01: mayo subcuenta), notas de estimación |
 
 ### Relaciones
 ```

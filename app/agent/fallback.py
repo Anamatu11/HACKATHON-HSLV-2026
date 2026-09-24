@@ -65,7 +65,34 @@ def _summarize_services(rows: list[dict]) -> str:
             + (f", seguido de {others}." if others else "."))
 
 
+def _summarize_avg_occupancy(rows: list[dict]) -> str:
+    top = rows[0]
+    fullest = max(rows, key=lambda r: r["avg_physical_pct"] or 0)
+    return (f"Desde junio, {top['service']} es el servicio con más camas ocupadas en promedio "
+            f"({fmt_number(top['avg_occupied_beds'])} por día, {fmt_number(top['avg_physical_pct'])}% de sus camas físicas). "
+            f"El más presionado es {fullest['service']}, con {fmt_number(fullest['avg_physical_pct'])}% en promedio. "
+            "Puede ver el detalle diario o mensual por servicio y subservicio en la pestaña Ocupación.")
+
+
 RULES: list[Rule] = [
+    # Promedio de ocupación por servicio (KPI del reto). Va ANTES de la regla de "hoy" para que
+    # "¿promedio de camas ocupadas en UCI?" no responda la foto del día.
+    Rule(
+        name="avg_occupancy_by_service",
+        keywords=("promedio", "ocupa"),
+        example="¿Cuál es el promedio diario de camas ocupadas por servicio?",
+        sql=f"""SELECT d.service, ROUND(AVG(d.occ), 1) AS avg_occupied_beds, k.physical AS physical_beds,
+                       ROUND(100.0 * AVG(d.occ) / k.physical, 1) AS avg_physical_pct
+                FROM (SELECT census_date, service, SUM(occupied_beds) AS occ FROM v_occupancy_sub_daily
+                      WHERE census_date >= (SELECT value FROM dataset_meta WHERE key = 'census_reliable_from')
+                        AND census_date <= {REF}
+                      GROUP BY census_date, service) d
+                JOIN (SELECT service, SUM(physical_beds) AS physical FROM bed_capacity_sub GROUP BY service) k
+                  USING (service)
+                GROUP BY d.service ORDER BY avg_occupied_beds DESC""",
+        chart={"type": "bar", "x": "service", "y": "avg_occupied_beds"},
+        summarize=_summarize_avg_occupancy,
+    ),
     # Demo 1 -> 27 de 46 (58,7%); 73% sobre camas físicas (37)
     Rule(
         name="uci_occupancy_today",

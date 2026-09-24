@@ -145,11 +145,13 @@ def reprogrammed_admissions() -> int:
 def occupancy_daily_series() -> dict:
     """Ocupación física diaria (últimos 30 días) de los servicios más sensibles."""
     services = ", ".join(f"'{s}'" for s in TRENDING_SERVICES)
-    rows = _rows(f"""SELECT census_date, service, occupancy_physical_pct AS value
-                     FROM v_occupancy_daily
+    # Censo combinado por subservicio (UCI con historia desde estancias facturadas), sumado por servicio
+    rows = _rows(f"""SELECT census_date, service,
+                            ROUND(100.0 * SUM(occupied_beds) / SUM(physical_beds), 1) AS value
+                     FROM v_occupancy_sub_daily
                      WHERE census_date > date({REF}, '-{OCCUPANCY_DAYS} day') AND census_date <= {REF}
                        AND service IN ({services})
-                     ORDER BY census_date""")
+                     GROUP BY census_date, service ORDER BY census_date""")
     labels = sorted({r["census_date"] for r in rows})
     by_key = {(r["service"], r["census_date"]): r["value"] for r in rows}
     return {

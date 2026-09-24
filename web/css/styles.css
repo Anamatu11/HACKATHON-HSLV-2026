@@ -31,6 +31,12 @@
   --status-ok-bg: #eaf7ea;
   --status-warning-bg: #fff6df;
   --status-critical-bg: #fdecec;
+
+  /* Barras de ocupación por estado (siempre con leyenda en texto) */
+  --bar-ok: #0ca30c;
+  --bar-high: #fab219;
+  --bar-over: #d03b3b;
+  --bar-incomplete: #c9c8d3;
 }
 
 body {
@@ -63,6 +69,29 @@ body {
 .accent-warning { border-left: 4px solid var(--status-warning); }
 .accent-critical { border-left: 4px solid var(--status-critical); }
 .accent-info { border-left: 4px solid var(--series-2); }
+
+/* Filtros de ocupación: celdas simétricas (etiqueta + control de 40 px a todo el ancho) */
+.occ-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.occ-label { font-size: 12px; color: var(--text-secondary); line-height: 16px; }
+.occ-control, .date-field, .seg-group { height: 40px; width: 100%; border: 1px solid #cbd5e1; border-radius: 8px;
+                                        background: #fff; font-size: 14px; color: var(--text-primary); }
+.occ-control { padding: 0 10px; }
+.occ-control:disabled { background: #f1f5f9; color: var(--text-muted); }
+.date-field { display: flex; align-items: center; gap: 8px; padding-left: 12px; overflow: hidden; }
+.date-field:focus-within { outline: 2px solid var(--series-2); outline-offset: 1px; }
+.date-prefix { font-size: 12px; color: var(--text-muted); flex: none; }
+.date-field input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; padding-right: 10px; background: transparent;
+                    font-variant-numeric: tabular-nums; accent-color: var(--brand-navy); }
+.date-field input::-webkit-calendar-picker-indicator { cursor: pointer; }
+.date-field:has(input[aria-invalid="true"]) { border-color: var(--status-critical); }
+.seg-group { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
+.seg { display: block; height: 100%; }
+.seg span { display: flex; align-items: center; justify-content: center; height: 100%; padding: 0 8px; cursor: pointer;
+            color: var(--text-secondary); white-space: nowrap; }
+.seg + .seg span { border-left: 1px solid #cbd5e1; }
+.seg input:checked + span { background: var(--brand-green-dark); color: #fff; font-weight: 600; }
+.seg input:focus-visible + span { outline: 2px solid var(--series-2); outline-offset: -2px; }
+.seg input:disabled + span { opacity: .45; cursor: not-allowed; }
 
 /* Pestañas */
 .tab { color: var(--text-secondary); border-bottom: 2px solid transparent; }

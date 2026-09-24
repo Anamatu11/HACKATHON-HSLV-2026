@@ -48,3 +48,8 @@ export const getKpis = () => api("/api/kpis");
 export const getAlerts = () => api("/api/alerts");
 export const askAgent = (question) => api("/api/query", { method: "POST", body: { question } });
 export const getMe = () => api("/api/auth/me");
+export const getOccupancyFilters = () => api("/api/occupancy/filters");
+export const getOccupancy = (params) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "" && v != null));
+  return api(`/api/occupancy?${query}`);
+};

@@ -46,5 +46,22 @@ def test_kpis_endpoint(headers):
 
 
 @requires_db
+def test_occupancy_endpoints(headers):
+    assert client.get("/api/occupancy/filters", headers=headers).status_code == 200
+    r = client.get("/api/occupancy", params={"service": "UCI", "granularity": "monthly"}, headers=headers)
+    assert r.status_code == 200 and r.json()["granularity"] == "monthly"
+
+
+@requires_db
+def test_occupancy_invalid_filter_returns_400(headers):
+    r = client.get("/api/occupancy", params={"service": "'; DROP TABLE admissions; --"}, headers=headers)
+    assert r.status_code == 400 and "error" in r.json()
+
+
+def test_occupancy_requires_token():
+    assert client.get("/api/occupancy").status_code == 401
+
+
+@requires_db
 def test_alerts_endpoint(headers):
     assert isinstance(client.get("/api/alerts", headers=headers).json(), list)

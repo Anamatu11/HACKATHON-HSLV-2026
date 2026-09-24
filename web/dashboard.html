@@ -46,6 +46,7 @@
   <nav class="bg-white border-b border-slate-200 sticky top-0 z-20">
     <div class="max-w-7xl mx-auto px-4 flex gap-6 overflow-x-auto" role="tablist" aria-label="Secciones del panel">
       <button class="tab py-3 whitespace-nowrap" role="tab" aria-selected="true" aria-controls="tab-summary" data-tab="summary">Resumen</button>
+      <button class="tab py-3 whitespace-nowrap" role="tab" aria-selected="false" aria-controls="tab-occupancy" data-tab="occupancy">Ocupación</button>
       <button class="tab py-3 whitespace-nowrap" role="tab" aria-selected="false" aria-controls="tab-assistant" data-tab="assistant">Asistente IA</button>
       <button class="tab py-3 whitespace-nowrap" role="tab" aria-selected="false" aria-controls="tab-alerts" data-tab="alerts">
         Alertas <span id="alerts-count" class="ml-1 text-xs rounded-full px-2 py-0.5 text-white" style="background: var(--status-critical)"></span>
@@ -63,6 +64,74 @@
       <div id="kpi-cards" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
       <div id="top-alerts" class="space-y-2"></div>
       <div id="summary-charts" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+    </section>
+
+    <!-- Ocupación hospitalaria: promedio diario/mensual por servicio, subservicio o especialidad -->
+    <section id="tab-occupancy" role="tabpanel" class="hidden space-y-4">
+      <div>
+        <h2 class="font-display font-semibold" style="color: var(--brand-navy)">Ocupación hospitalaria</h2>
+        <p class="text-sm text-slate-500">Promedio diario y mensual de camas ocupadas por servicio, subservicio o especialidad.</p>
+      </div>
+
+      <!-- Filtros: grilla de 3 columnas iguales; cada celda = etiqueta + control de 40 px a todo el ancho -->
+      <form id="occ-filters" class="card p-4 grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-4" aria-label="Filtros de ocupación">
+        <div class="occ-field">
+          <span class="occ-label" id="lbl-mode">Ver por</span>
+          <div class="seg-group" role="radiogroup" aria-labelledby="lbl-mode">
+            <label class="seg"><input type="radio" name="mode" value="service" checked class="sr-only" /><span>Servicio</span></label>
+            <label class="seg"><input type="radio" name="mode" value="specialty" class="sr-only" /><span>Especialidad</span></label>
+          </div>
+        </div>
+        <label class="occ-field" id="occ-service-box">
+          <span class="occ-label">Servicio</span>
+          <select id="occ-service" class="occ-control"></select>
+        </label>
+        <label class="occ-field" id="occ-sub-box">
+          <span class="occ-label">Subservicio</span>
+          <select id="occ-sub" class="occ-control"></select>
+        </label>
+        <label class="occ-field md:col-span-2 hidden" id="occ-specialty-box">
+          <span class="occ-label">Pacientes atendidos por</span>
+          <select id="occ-specialty" class="occ-control"></select>
+        </label>
+
+        <!-- Periodo: Desde/Hasta (por defecto desde junio, primer mes con datos completos) -->
+        <div class="occ-field md:col-span-2" role="group" aria-labelledby="lbl-period">
+          <span class="occ-label" id="lbl-period">Periodo</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+            <label class="date-field"><span class="date-prefix">Desde</span>
+              <input type="date" id="occ-start" required aria-label="Desde" />
+            </label>
+            <label class="date-field"><span class="date-prefix">Hasta</span>
+              <input type="date" id="occ-end" required aria-label="Hasta" />
+            </label>
+          </div>
+        </div>
+        <div class="occ-field" id="occ-metric-box">
+          <span class="occ-label" id="lbl-metric">Métrica</span>
+          <div class="seg-group" role="radiogroup" aria-labelledby="lbl-metric">
+            <label class="seg"><input type="radio" name="metric" value="beds" checked class="sr-only" /><span>Camas ocupadas</span></label>
+            <label class="seg"><input type="radio" name="metric" value="pct" class="sr-only" /><span>% camas físicas</span></label>
+          </div>
+        </div>
+      </form>
+
+      <p id="occ-error" class="hidden text-sm rounded-lg p-3 status-critical" role="alert"></p>
+      <div id="occ-summary" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
+      <div id="occ-main" class="grid grid-cols-1 gap-4"></div>
+      <div id="occ-notes" class="card p-4 text-sm text-slate-600 space-y-1"></div>
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <article class="card p-4">
+          <h3 class="font-display font-semibold text-sm" style="color: var(--brand-navy)">Promedio diario por servicio</h3>
+          <p class="text-xs text-slate-500 mb-2">En el periodo elegido · clic en un servicio para verlo en detalle</p>
+          <div id="occ-by-service" class="overflow-auto"></div>
+        </article>
+        <article class="card p-4">
+          <h3 class="font-display font-semibold text-sm" style="color: var(--brand-navy)">Promedio mensual de camas ocupadas</h3>
+          <p class="text-xs text-slate-500 mb-2">Camas ocupadas promedio por día, en cada mes</p>
+          <div id="occ-matrix" class="overflow-auto"></div>
+        </article>
+      </div>
     </section>
 
     <!-- Asistente IA -->

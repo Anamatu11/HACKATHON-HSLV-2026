@@ -1,8 +1,9 @@
 // Panel principal: tarjetas KPI, gráficos, alertas, inventario y pestañas.
 import { getAlerts, getKpis, getUser, logout } from "./api.js";
-import { barChart, chartOf, lineChart, SERIES } from "./charts.js";
+import { barChart, chartCard, lineChart, SERIES } from "./charts.js";
 import { initChat } from "./chat.js";
-import { dataTable, el, fmt, fmtDate, statusBadge } from "./ui.js";
+import { initOccupancy } from "./occupancy.js";
+import { el, fmt, fmtDate, statusBadge } from "./ui.js";
 
 const $ = (id) => document.getElementById(id);
 const state = { kpis: null, alerts: [], medsRendered: false, alertFilter: "" };
@@ -52,6 +53,10 @@ export function showTab(name) {
     renderMedsCharts(state.kpis.series);   // se dibujan al mostrarse para que Chart.js tome el tamaño real
     state.medsRendered = true;
   }
+  if (name === "occupancy" && !state.occupancyStarted) {
+    state.occupancyStarted = true;
+    initOccupancy();   // se carga al abrir la pestaña
+  }
   if (name === "assistant") $("question").focus();
 }
 
@@ -71,38 +76,6 @@ function renderCards(cards) {
 }
 
 // --- Gráficos ----------------------------------------------------------------------
-
-/** Tarjeta de gráfico con botón "Ver tabla" (alternativa accesible a los colores). */
-function chartCard(container, { title, subtitle, tall = false, wide = false }) {
-  const canvas = el("canvas", { role: "img", "aria-label": title });
-  const tableBox = el("div", { class: "hidden overflow-auto max-h-72 mt-2" });
-  const toggle = el("button", {
-    class: "text-xs text-slate-600 border border-slate-200 rounded-md px-2 py-1 hover:bg-slate-50", type: "button",
-    onclick: () => {
-      const showing = !tableBox.classList.contains("hidden");
-      tableBox.classList.toggle("hidden", showing);
-      toggle.textContent = showing ? "Ver tabla" : "Ocultar tabla";
-      if (!showing) tableBox.replaceChildren(tableFromChart(chartOf(canvas)));
-    },
-  }, "Ver tabla");
-  container.append(el("article", { class: `card p-4 ${wide ? "lg:col-span-2" : ""}` }, [
-    el("div", { class: "flex items-start justify-between gap-2 mb-2" }, [
-      el("div", {}, [el("h3", { class: "font-display font-semibold text-sm", style: "color: var(--brand-navy)" }, title),
-                     subtitle ? el("p", { class: "text-xs text-slate-500" }, subtitle) : null]),
-      toggle,
-    ]),
-    el("div", { class: `chart-box ${tall ? "tall" : ""}` }, canvas),
-    tableBox,
-  ]));
-  return canvas;
-}
-
-function tableFromChart(chart) {
-  if (!chart) return el("p", {}, "Sin datos");
-  const { labels, datasets } = chart.data;
-  return dataTable(["", ...datasets.map((d) => d.label || "Valor")],
-                   labels.map((l, i) => [l, ...datasets.map((d) => d.data[i])]));
-}
 
 function renderSummaryCharts(s) {
   const box = $("summary-charts");

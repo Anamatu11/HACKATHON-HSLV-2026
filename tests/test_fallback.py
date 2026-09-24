@@ -15,6 +15,11 @@ def test_keywords_match_at_word_start_only():
     assert match_rule("¿cómo reducir camas ocupadas?") is None
 
 
+def test_average_occupancy_question_is_not_confused_with_today():
+    rule = match_rule("¿Cuál es el promedio de camas ocupadas en UCI?")
+    assert rule is not None and rule.name == "avg_occupancy_by_service"
+
+
 def test_rephrased_question_still_matches():
     rule = match_rule("camas uci ocupadas")
     assert rule is not None and rule.name == "uci_occupancy_today"

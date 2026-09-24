@@ -13,6 +13,7 @@ from functools import lru_cache
 
 from app import db
 from app.formatting import fmt_number, pct
+from app.occupancy import sub_label
 
 REF = "(SELECT value FROM dataset_meta WHERE key='reference_date')"
 
@@ -140,7 +141,27 @@ def occupancy_alerts() -> list[dict]:
                   if donors else "Habilitar camas de expansión y evaluar reasignación de personal entre servicios.")
         alerts.append(_alert("occupancy", "critical" if full else "warning",
                              f"{r['service']} al {fmt_number(r['pct'])}% de ocupación", detail, action))
-    return alerts
+    return alerts + critical_unit_alerts()
+
+
+def critical_unit_alerts() -> list[dict]:
+    """Subunidades críticas (UCI/Intermedio/Básico por adultos, neonatal, pediátrica) >= 90%.
+    El promedio del servicio puede esconder una unidad llena: hoy UCI está al 73% pero la neonatal al 100%."""
+    rows = _rows(f"""SELECT service, sub_service, occupied_beds, physical_beds, occupancy_physical_pct AS pct
+                     FROM v_occupancy_sub_daily
+                     WHERE census_date = {REF} AND physical_beds > 0
+                       AND service IN ('UCI', 'Cuidado Intermedio')
+                       AND occupancy_physical_pct >= {OCCUPANCY_HIGH_PCT}
+                     ORDER BY occupancy_physical_pct DESC""")
+    return [
+        _alert("occupancy", "critical" if r["pct"] >= 100 else "warning",
+               f"{sub_label(r['sub_service'])} al {fmt_number(r['pct'])}% de ocupación",
+               f"{r['occupied_beds']} pacientes en {r['physical_beds']} camas físicas de {sub_label(r['sub_service'])}, "
+               f"aunque el servicio {r['service']} en conjunto tiene camas libres.",
+               "Revisar criterios de egreso y traslado a intermedio, y activar la red de referencia "
+               "si ingresa un paciente que requiera esta unidad.")
+        for r in rows
+    ]
 
 
 # --- Tiempos de espera -------------------------------------------------------------

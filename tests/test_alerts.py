@@ -29,6 +29,11 @@ def test_pediatrics_overcrowding_is_flagged_with_reassignment_hint():
     assert "reasign" in pedia["action"].lower()
 
 
+def test_critical_subunit_alert_uci_neonatal_full():
+    occ = alerts.occupancy_alerts()
+    assert any("UCI Neonatal" in a["title"] and a["severity"] == "critical" for a in occ)
+
+
 def test_triage2_wait_alert_includes_root_cause():
     wait = alerts.wait_time_alerts()
     t2 = next(a for a in wait if "triage 2" in a["title"].lower())

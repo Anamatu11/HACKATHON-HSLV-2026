@@ -26,6 +26,12 @@ ALLOWED_TABLES = {
     "v_admissions_safe": "ingresos/episodios sin datos personales; diagnóstico solo como capítulo CIE-10 (diagnosis_chapter)",
     "v_occupancy_daily": "ocupación diaria por servicio: occupied_beds, capacity_beds, occupancy_pct, occupancy_physical_pct (>100% = camas virtuales)",
     "bed_capacity": "capacidad ESTIMADA de camas por servicio",
+    "v_occupancy_sub_daily": "ocupación diaria por servicio Y subservicio (UCI Adultos/Neonatal/Pediátrica, Intermedio...). "
+                             "PREFERIRLA para promedios históricos: en unidades críticas combina cama registrada y estancias "
+                             "facturadas (occupied_beds = la mayor). Sumar occupied_beds y physical_beds por día para nivel servicio",
+    "bed_capacity_sub": "capacidad ESTIMADA por servicio y subservicio",
+    "specialty_census_daily": "pacientes hospitalizados presentes por día atendidos por cada especialidad (specialty_group, "
+                              "p. ej. 'MEDICINA INTERNA'); no tiene capacidad de camas",
     "wait_times": "espera en urgencias por ingreso: wait_minutes = primera atención - triage; triage_level 1 (emergencia) a 4",
     "stays": "estancias facturadas por unidad de cuidado (UCI Neonatal, UCI Adultos...); NO usar para ocupación de hoy",
     "drug_inventory": "inventario SIMULADO de medicamentos: stock_units, avg_daily_consumption (real), days_of_inventory, expiry_date",

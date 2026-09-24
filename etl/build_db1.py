@@ -155,37 +155,8 @@ def build_first_care(raw):
 
 
 # ---------------------------------------------------------------- servicios
-SERVICE_CATEGORY_MAP = {  # 2 primeros dígitos de CodigoAreaServicio -> categoría del filtro
-    "31": "Urgencias",
-    "32": "Consulta externa",
-    "33": "Hospitalización / UCI",
-    "34": "Quirófanos",
-    "35": "Apoyo diagnóstico",
-    "36": "Apoyo terapéutico",
-    "37": "Servicios conexos",
-    "11": "Administrativo",
-    "14": "Administrativo",
-    "21": "Administrativo",
-}
-
-TOP_SPECIALTIES = {  # cubren ~94% de las líneas; el resto se agrupa como "Otras especialidades"
-    "MEDICINA GENERAL", "TERAPIA RESPIRATORIA", "PEDIATRA", "FISIOTERAPIA",
-    "ORTOPEDIA Y TRAUMATOLOGIA", "MEDICINA INTERNA", "CIRUGIA GENERAL",
-    "FONOAUDIOLOGIA", "GINECOLOGIA Y OBSTETRICIA", "MEDICINA CRITICA Y CUIDADO INTENSIVO",
-}
-
-
-def service_category(area_code: str) -> str:
-    return SERVICE_CATEGORY_MAP.get(str(area_code)[:2], "Otros")
-
-
-def specialty_group(specialty: str) -> str:
-    return specialty if specialty in TOP_SPECIALTIES else "Otras especialidades"
-
-
 def build_services(raw):
     s = read_raw(raw, "Servicios")
-    specialty = clean_text(s.Especialidad)
     return pd.DataFrame({
         "line_id": s.OidS.astype(int),
         "admission_id": s.OidIngreso.astype(int),
@@ -195,9 +166,7 @@ def build_services(raw):
         "performed_at": fmt_dt(to_dt(s.FechaPrestacion)),
         "area_code": s.CodigoAreaServicio,
         "area": clean_text(s.AreaServicio),
-        "service_category": s.CodigoAreaServicio.map(service_category),
-        "specialty": specialty,
-        "specialty_group": specialty.map(specialty_group),
+        "specialty": clean_text(s.Especialidad),
     })
 
 
@@ -306,92 +275,16 @@ def build_bed_census(admissions):
     return pd.DataFrame(rows, columns=["census_date", "service", "occupied_beds"])
 
 
-def build_bed_capacity(admissions, keys=("service",)):
+def build_bed_capacity(admissions):
     """Capacidad ESTIMADA = camas distintas usadas en el periodo. Las camas 'VIRTUAL' son
-    expansión (sobreocupación). Reemplazar por capacidad real si el hospital la entrega.
-    keys=("service", "sub_service") da la capacidad por subservicio."""
-    keys = list(keys)
-    total = admissions.groupby(keys).bed_code.nunique().rename("capacity_beds")
-    physical = (admissions[admissions.is_virtual_bed == 0].groupby(keys).bed_code.nunique()
-                .rename("physical_beds"))
-    cap = pd.concat([total, physical], axis=1).fillna(0).astype(int).reset_index()
+    expansión (sobreocupación). Reemplazar por capacidad real si el hospital la entrega."""
+    g = admissions.groupby("service")
+    cap = pd.DataFrame({
+        "capacity_beds": g.bed_code.nunique(),
+        "physical_beds": g.apply(lambda x: x.loc[x.is_virtual_bed == 0, "bed_code"].nunique()),
+    }).reset_index()
     cap["is_estimated"] = 1
     return cap
-
-
-# ---------------------------------------------------------------- ocupación por subservicio
-CENSUS_HOUR = pd.Timedelta(hours=12)
-CENSUS_RELIABLE_FROM = "2026-06-01"   # mayo subcuenta: faltan pacientes que ingresaron antes del 1-may
-
-# Unidades de estancia facturada (stays.unit) -> (servicio, subservicio) de camas.
-# Solo las unidades de cuidado crítico tienen equivalencia 1 a 1 con un subservicio.
-STAY_UNIT_TO_SUB = {
-    "UCI Adultos": ("UCI", "UNIDAD DE CUIDADOS INTENSIVOS ADULTOS"),
-    "UCI Neonatal": ("UCI", "UNIDAD DE CUIDADO INTENSIVO NEONATAL"),
-    "UCI Pediátrica": ("UCI", "UNIDAD DE CUIDADO INTENSIVO PEDIATRICO"),
-    "Intermedio Adultos": ("Cuidado Intermedio", "UNIDAD DE CUIDADO INTERMEDIO ADULTOS"),
-    "Intermedio Neonatal": ("Cuidado Intermedio", "UNIDAD DE CUIDADO INTERMEDIO NEONATAL"),
-    "Intermedio Pediátrico": ("Cuidado Intermedio", "UNIDAD DE CUIDADO INTERMEDIO PEDIATRICO"),
-    "Básico Neonatal": ("Cuidado Básico Neonatal", "UNIDAD DE CUIDAD BASICO NEONATAL"),
-}
-
-
-def census_days(admissions):
-    """Días del censo (corte 12:00), del primer ingreso a la última actividad."""
-    start = pd.to_datetime(admissions.hospitalization_at.fillna(admissions.admission_at))
-    end = pd.to_datetime(admissions.last_activity_at)
-    return pd.date_range(start.min().normalize(), end.max().normalize(), freq="D") + CENSUS_HOUR
-
-
-def count_present(starts, ends, days, end_inclusive=True):
-    """Cuántos intervalos [start, end] contienen cada día. O(n log n) con búsqueda binaria."""
-    s = np.sort(np.asarray(starts, dtype="datetime64[ns]"))
-    e = np.sort(np.asarray(ends, dtype="datetime64[ns]"))
-    d = np.asarray(days, dtype="datetime64[ns]")
-    started = np.searchsorted(s, d, side="right")                              # start <= día
-    ended = np.searchsorted(e, d, side="left" if end_inclusive else "right")   # end < día (o <=)
-    return started - ended
-
-
-def build_bed_census_sub(admissions, days):
-    """Censo por subservicio según la cama registrada del ingreso (como bed_census_daily, más fino)."""
-    a = admissions.assign(start=pd.to_datetime(admissions.hospitalization_at.fillna(admissions.admission_at)),
-                          end=pd.to_datetime(admissions.last_activity_at))
-    frames = [pd.DataFrame({"census_date": days.strftime("%Y-%m-%d"), "service": service, "sub_service": sub,
-                            "occupied_beds": count_present(g.start, g.end, days)})
-              for (service, sub), g in a.groupby(["service", "sub_service"])]
-    return pd.concat(frames, ignore_index=True)
-
-
-def build_stays_census(stays, days):
-    """Censo de unidades críticas según estancias FACTURADAS (inicio + días cobrados).
-    Recupera la historia de pacientes que luego fueron trasladados, pero subcuenta los días
-    recientes: la estancia se factura al egreso."""
-    frames = []
-    for unit, (service, sub) in STAY_UNIT_TO_SUB.items():
-        g = stays[stays.unit == unit]
-        frames.append(pd.DataFrame({
-            "census_date": days.strftime("%Y-%m-%d"), "service": service, "sub_service": sub,
-            "occupied_beds": count_present(pd.to_datetime(g.start_at), pd.to_datetime(g.end_at_estimated),
-                                           days, end_inclusive=False)}))
-    return pd.concat(frames, ignore_index=True)
-
-
-def build_specialty_census(admissions, services, days):
-    """Pacientes HOSPITALIZADOS presentes cada día que recibieron atención de cada grupo de especialidad
-    (p. ej. Medicina Interna). No depende de la última cama, así que la historia es confiable."""
-    hosp = admissions.dropna(subset=["hospitalization_at"])
-    pairs = (services.loc[services.admission_id.isin(hosp.admission_id), ["admission_id", "specialty_group"]]
-             .drop_duplicates())
-    spans = hosp.set_index("admission_id")[["hospitalization_at", "last_activity_at"]]
-    frames = []
-    for group, g in pairs.groupby("specialty_group"):
-        span = spans.loc[g.admission_id]
-        frames.append(pd.DataFrame({
-            "census_date": days.strftime("%Y-%m-%d"), "specialty_group": group,
-            "patients": count_present(pd.to_datetime(span.hospitalization_at),
-                                      pd.to_datetime(span.last_activity_at), days)}))
-    return pd.concat(frames, ignore_index=True)
 
 
 def build_wait_times(admissions, triage, first_care):
@@ -453,11 +346,6 @@ def main():
     stays = build_stays(services)
     census = build_bed_census(admissions)
     capacity = build_bed_capacity(admissions)
-    days = census_days(admissions)
-    census_sub = build_bed_census_sub(admissions, days)
-    capacity_sub = build_bed_capacity(admissions, keys=("service", "sub_service"))
-    stays_census = build_stays_census(stays, days)
-    specialty_census = build_specialty_census(admissions, services, days)
     waits = build_wait_times(admissions, triage, first_care)
     inventory = build_drug_inventory(meds, reference_date)
     meta = pd.DataFrame([
@@ -466,17 +354,11 @@ def main():
         ("inventory_note", "simulado", "drug_inventory es simulado a partir del consumo real"),
         ("capacity_note", "estimado", "bed_capacity = camas distintas usadas por servicio (physical_beds excluye virtuales)"),
         ("census_note", "estimado", "bed_census_daily = pacientes entre hospitalización y última actividad, corte 12:00"),
-        ("census_reliable_from", CENSUS_RELIABLE_FROM,
-         "Antes de esta fecha el censo subcuenta: faltan pacientes que ingresaron antes del inicio del extracto"),
-        ("occupancy_sub_note", "combinado",
-         "v_occupancy_sub_daily = MAX(censo por cama registrada, censo por estancias facturadas) en unidades críticas"),
     ], columns=["key", "value", "description"])
 
     tables = dict(patients=patients, triage=triage, admissions=admissions, first_care=first_care,
                   services=services, medications=meds, surgery_schedule=surgery, stays=stays,
                   bed_census_daily=census, bed_capacity=capacity, wait_times=waits,
-                  bed_census_sub_daily=census_sub, bed_capacity_sub=capacity_sub,
-                  stays_census_daily=stays_census, specialty_census_daily=specialty_census,
                   drug_inventory=inventory, dataset_meta=meta)
 
     con = sqlite3.connect(out)
@@ -509,27 +391,6 @@ def main():
            ROUND(100.0 * c.occupied_beds / k.capacity_beds, 1) AS occupancy_pct,
            ROUND(100.0 * c.occupied_beds / NULLIF(k.physical_beds, 0), 1) AS occupancy_physical_pct
     FROM bed_census_daily c JOIN bed_capacity k USING(service);
-
-    CREATE INDEX ix_census_sub ON bed_census_sub_daily(census_date, service, sub_service);
-    CREATE INDEX ix_stays_census ON stays_census_daily(census_date, service, sub_service);
-    CREATE INDEX ix_specialty_census ON specialty_census_daily(census_date, specialty_group);
-
-    -- Ocupación diaria por subservicio. Ambas fuentes SUBCUENTAN por causas distintas (la cama
-    -- registrada pierde a los trasladados; las estancias, a quienes aún no egresan), así que se toma
-    -- la mayor: es la estimación más ajustada sin inventar datos. census_source dice cuál se usó.
-    CREATE VIEW v_occupancy_sub_daily AS
-    SELECT c.census_date, c.service, c.sub_service,
-           c.occupied_beds AS bed_census, s.occupied_beds AS stays_census,
-           MAX(c.occupied_beds, COALESCE(s.occupied_beds, 0)) AS occupied_beds,
-           CASE WHEN COALESCE(s.occupied_beds, 0) > c.occupied_beds THEN 'estancias' ELSE 'cama' END AS census_source,
-           k.capacity_beds, k.physical_beds,
-           ROUND(100.0 * MAX(c.occupied_beds, COALESCE(s.occupied_beds, 0)) / k.capacity_beds, 1) AS occupancy_pct,
-           ROUND(100.0 * MAX(c.occupied_beds, COALESCE(s.occupied_beds, 0)) / NULLIF(k.physical_beds, 0), 1)
-               AS occupancy_physical_pct
-    FROM bed_census_sub_daily c
-    JOIN bed_capacity_sub k USING (service, sub_service)
-    LEFT JOIN stays_census_daily s
-           ON s.census_date = c.census_date AND s.service = c.service AND s.sub_service = c.sub_service;
     """)
     con.commit()
     con.close()

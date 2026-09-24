@@ -180,6 +180,33 @@ Tarjetas: `hospital_occupancy`, `uci_occupancy`, `avg_wait_7d`, `critical_stock`
 | Cirugías | % no realizadas, peor mes y reprogramaciones |
 | Predictiva | capítulo CIE-10 con +15% de ingresos/día (2 semanas vs 4 previas), ordenado por impacto absoluto; recomienda los medicamentos característicos del capítulo (mayor *lift*) |
 
+### `GET /api/occupancy/filters` y `GET /api/occupancy`
+
+KPI del reto "ocupación hospitalaria: promedio diario/mensual de camas ocupadas por servicio".
+
+`/filters` → servicios (9) con sus subservicios (19) y camas, especialidades, `first_date`, `reference_date`,
+`reliable_from`.
+
+`/api/occupancy?service=UCI&sub_service=...&specialty=...&granularity=daily|monthly&start=AAAA-MM-DD&end=AAAA-MM-DD`
+(servicio **o** especialidad; filtros validados contra listas conocidas, 400 `{error}` si no) →
+
+```json
+{
+  "scope": { "type": "beds", "label": "UCI · UCI Neonatal" }, "granularity": "daily",
+  "labels": ["2026-06-01"], "occupied": [10], "physical_pct": [66.7],
+  "capacity": { "physical_beds": 15, "total_beds": 18 }, "threshold_beds": 13.5,
+  "summary": { "avg": 11.4, "max": 20, "max_date": "2026-07-14", "today": 15, "days_over_threshold": 29, "days": 113 },
+  "by_service": [{ "service": "Pediatría", "avg_occupied": 57, "physical_beds": 38, "avg_physical_pct": 150, "days_over_threshold": 113 }],
+  "monthly_matrix": { "months": ["2026-06"], "rows": [{ "service": "UCI", "values": [21.6] }] },
+  "notes": ["La capacidad es estimada…"], "incomplete_from": "2026-09-07"
+}
+```
+
+**Fuente de la historia:** `v_occupancy_sub_daily`. Cada ingreso guarda solo su última cama, así que el censo por cama
+subcuenta a los pacientes trasladados (UCI daba ~3 camas/día); las estancias facturadas los recuperan pero subcuentan
+a quienes aún no egresan. En unidades críticas se toma la mayor de ambas (UCI ≈ 22 camas/día jun–ago). El tramo
+`incomplete_from` → ayer se sombrea en el gráfico; mayo se marca como incompleto (`census_reliable_from`).
+
 ### `GET /api/health`
 
 `{ "status": "ok", "db": true, "llm_provider": "anthropic", "reference_date": "2026-09-21" }`
