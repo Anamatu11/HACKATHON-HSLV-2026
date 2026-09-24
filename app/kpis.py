@@ -66,6 +66,7 @@ def get_kpis() -> dict:
             "top_specialties": top_specialties_series(),
         },
         "medications_table": medications_table(),
+        "admissions_table": admissions_table(),
     }
 
 
@@ -244,3 +245,16 @@ def medications_table() -> list[dict]:
                            CASE WHEN days_of_inventory < 2 THEN 'critical'
                                 WHEN days_of_inventory < 5 THEN 'warning' ELSE 'ok' END AS status
                     FROM drug_inventory ORDER BY days_of_inventory, item_name""")
+
+
+def admissions_table(limit: int = 100) -> list[dict]:
+    """Listado dinámico de pacientes/ingresos (sin datos sensibles) para la tabla del dashboard."""
+    return _rows(f"""SELECT substr(a.admission_at, 1, 16) AS admission_at,
+                            a.service, a.sub_service, a.admission_route,
+                            COALESCE(p.sex, 'No registrado') AS sex,
+                            a.age_group,
+                            a.diagnosis_chapter, a.length_of_stay_days
+                     FROM admissions a
+                     LEFT JOIN patients p ON a.patient_id = p.patient_id
+                     ORDER BY a.admission_at DESC LIMIT {limit}""")
+

@@ -60,6 +60,8 @@ Reglas obligatorias:
 6. Devuelve agregados con alias claros en inglés (p. ej. COUNT(*) AS admissions). Máximo 200 filas.
 7. Si la pregunta pide datos personales o de un paciente individual (nombres, documentos,
    fechas de nacimiento, diagnóstico de una persona), responde exactamente: {REFUSE_TOKEN}
+8. Sintaxis estricta SQLite: NUNCA uses ILIKE (usa LIKE o LOWER()), NUNCA uses CONCAT() (usa ||),
+   NUNCA uses DATE_TRUNC o DATEDIFF (usa substr(), date() o julianday()).
 """
 
 

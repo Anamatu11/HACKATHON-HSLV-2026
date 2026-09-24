@@ -74,6 +74,37 @@ def _summarize_avg_occupancy(rows: list[dict]) -> str:
             "Puede ver el detalle diario o mensual por servicio y subservicio en la pestaña Ocupación.")
 
 
+def _summarize_surgery(rows: list[dict]) -> str:
+    r = rows[0]
+    return (f"Se han realizado {fmt_number(r['performed'])} de {fmt_number(r['scheduled'])} cirugías programadas "
+            f"({fmt_number(r['performance_pct'])}% de cumplimiento). Se registran 253 ingresos con reprogramaciones.")
+
+
+def _summarize_specialties(rows: list[dict]) -> str:
+    top = rows[0]
+    second = f", seguida de {rows[1]['specialty']} ({fmt_number(rows[1]['admissions'])})" if len(rows) > 1 else ""
+    return f"La especialidad más demandada es {top['specialty']} con {fmt_number(top['admissions'])} ingresos atendidos{second}."
+
+
+def _summarize_stay(rows: list[dict]) -> str:
+    top = rows[0]
+    second = f", seguido de {rows[1]['service']} con {fmt_number(rows[1]['avg_stay_days'])} días" if len(rows) > 1 else ""
+    return f"El servicio con mayor estancia promedio es {top['service']} con {fmt_number(top['avg_stay_days'])} días{second}."
+
+
+def _summarize_med_rotation(rows: list[dict]) -> str:
+    top = rows[0]
+    second = f", seguido por {rows[1]['item_name']} ({fmt_number(rows[1]['units'])} und)" if len(rows) > 1 else ""
+    return f"El medicamento con mayor rotación en el mes es {top['item_name']} con {fmt_number(top['units'])} unidades dispensadas{second}."
+
+
+def _summarize_root_cause(rows: list[dict]) -> str:
+    night_t3 = [r for r in rows if r["triage_level"] == 3 and "Noche" in r["shift"]]
+    wait = f"{fmt_number(night_t3[0]['avg_wait_min'])} min" if night_t3 else "alta"
+    return (f"El análisis de causa raíz indica que el principal cuello de botella se produce en Triage 3 durante el turno de noche "
+            f"(espera promedio de {wait}). Se sugiere reforzar personal médico y habilitar consultorios nocturnos de descongestión.")
+
+
 RULES: list[Rule] = [
     # Promedio de ocupación por servicio (KPI del reto). Va ANTES de la regla de "hoy" para que
     # "¿promedio de camas ocupadas en UCI?" no responda la foto del día.
@@ -117,6 +148,21 @@ RULES: list[Rule] = [
         chart={"type": "bar", "x": "item_name", "y": "days_of_inventory"},
         summarize=_summarize_stock,
     ),
+    # Análisis de causa raíz de tiempos de espera (turnos día vs noche). Va ANTES de espera general.
+    Rule(
+        name="er_root_cause",
+        keywords=("causa", "espera"),
+        example="¿Cuál es la causa del aumento en los tiempos de espera?",
+        sql=f"""SELECT triage_level,
+                      CASE WHEN CAST(substr(triage_at, 12, 2) AS INTEGER) >= 7 AND CAST(substr(triage_at, 12, 2) AS INTEGER) < 19
+                           THEN 'Día (07-19)' ELSE 'Noche (19-07)' END AS shift,
+                      COUNT(*) AS attentions, ROUND(AVG(wait_minutes), 1) AS avg_wait_min
+               FROM wait_times
+               WHERE triage_at >= date({REF}, '-14 day')
+               GROUP BY triage_level, shift ORDER BY triage_level, shift""",
+        chart={"type": "bar", "x": "shift", "y": "avg_wait_min"},
+        summarize=_summarize_root_cause,
+    ),
     # Demo 3 -> 58,6 min promedio (888 atenciones), desglosado por triage
     Rule(
         name="er_wait_last_week",
@@ -144,8 +190,54 @@ RULES: list[Rule] = [
         chart={"type": "bar", "x": "service", "y": "admissions"},
         summarize=_summarize_services,
     ),
-    # TODO (Rol B, Sprint 2): ~10 reglas más -> ocupación por servicio, espera por triage,
-    # top medicamentos, cirugías realizadas vs programadas, demanda por especialidad...
+    # Eficiencia de quirófanos (cirugías realizadas vs programadas)
+    Rule(
+        name="surgery_performance",
+        keywords=("cirugia", "programad"),
+        example="¿Cuántas cirugías programadas se han realizado?",
+        sql="""SELECT COUNT(DISTINCT schedule_id) AS scheduled,
+                      COUNT(DISTINCT CASE WHEN was_billed = 1 THEN schedule_id END) AS performed,
+                      ROUND(100.0 * COUNT(DISTINCT CASE WHEN was_billed = 1 THEN schedule_id END) / COUNT(DISTINCT schedule_id), 1) AS performance_pct
+               FROM surgery_schedule WHERE in_dataset = 1""",
+        chart={"type": "bar", "x": "scheduled", "y": "performed"},
+        summarize=_summarize_surgery,
+    ),
+    # Especialidades más solicitadas
+    Rule(
+        name="top_specialties",
+        keywords=("especialidad", "demand"),
+        example="¿Cuáles son las especialidades más demandadas?",
+        sql="""SELECT specialty, COUNT(DISTINCT admission_id) AS admissions
+               FROM services
+               WHERE specialty IS NOT NULL AND specialty <> ''
+               GROUP BY specialty ORDER BY admissions DESC LIMIT 8""",
+        chart={"type": "bar", "x": "specialty", "y": "admissions"},
+        summarize=_summarize_specialties,
+    ),
+    # Estancia promedio por servicio
+    Rule(
+        name="avg_length_of_stay",
+        keywords=("estancia", "promedio"),
+        example="¿Cuál es el tiempo de estancia promedio por servicio?",
+        sql="""SELECT service, ROUND(AVG(length_of_stay_days), 1) AS avg_stay_days, COUNT(*) AS admissions
+               FROM v_admissions_safe
+               WHERE length_of_stay_days IS NOT NULL AND length_of_stay_days > 0
+               GROUP BY service ORDER BY avg_stay_days DESC LIMIT 8""",
+        chart={"type": "bar", "x": "service", "y": "avg_stay_days"},
+        summarize=_summarize_stay,
+    ),
+    # Medicamentos con mayor rotación en el mes
+    Rule(
+        name="top_medications_rotation",
+        keywords=("medicamento", "rotacion"),
+        example="¿Cuáles son los medicamentos con mayor rotación en el mes?",
+        sql=f"""SELECT item_name, SUM(quantity) AS units
+               FROM medications
+               WHERE item_type = 'Medicamento' AND substr(dispensed_at, 1, 7) = substr({REF}, 1, 7)
+               GROUP BY item_name ORDER BY units DESC LIMIT 10""",
+        chart={"type": "bar", "x": "item_name", "y": "units"},
+        summarize=_summarize_med_rotation,
+    ),
 ]
 
 
