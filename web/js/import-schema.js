@@ -80,43 +80,43 @@ export const EXPECTED_COLUMNS = {
 
 export const FILE_METADATA = {
   atencion: {
-    label: "Atención (primera consulta)",
+    label: "Atención",
     filename: "Atencion.txt",
     separator: "|",
     encoding: "utf-8"
   },
   paciente: {
-    label: "Paciente (demografía y afiliación)",
+    label: "Paciente",
     filename: "Paciente.txt",
     separator: "|",
     encoding: "utf-8"
   },
   ingresos: {
-    label: "Ingresos (episodios y camas)",
+    label: "Ingresos",
     filename: "Ingresos.txt",
     separator: "|",
     encoding: "utf-8"
   },
   programacion_cirugia: {
-    label: "Programación de Cirugía (quirófanos)",
+    label: "Programación de Cirugía",
     filename: "ProgramacionCirugia.txt",
     separator: "|",
     encoding: "utf-8"
   },
   triage: {
-    label: "Triage (signos vitales y clasificación)",
+    label: "Triage",
     filename: "Triage.txt",
     separator: "|",
     encoding: "utf-8"
   },
   medicamentos_insumos: {
-    label: "Medicamentos e Insumos (dispensación)",
+    label: "Medicamentos e Insumos",
     filename: "MedicamentoInsumo.txt",
     separator: "|",
     encoding: "utf-8"
   },
   servicios: {
-    label: "Servicios (procedimientos y estancia)",
+    label: "Servicios",
     filename: "Servicios.txt",
     separator: "|",
     encoding: "utf-8"

@@ -24,10 +24,7 @@ function renderImportCard() {
 
   // Encabezado del paso según la imagen de referencia
   const header = el("div", { class: "border-b border-slate-100 pb-3" }, [
-    el("h3", { class: "font-display font-semibold text-base text-slate-800 flex items-center gap-2" }, [
-      el("span", { class: "inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-xs font-bold text-slate-700" }, "1"),
-      "Tipo y marca"
-    ]),
+    el("h3", { class: "font-display font-semibold text-base text-slate-800" }, "Importar datos"),
     el("p", { class: "text-xs text-slate-500 mt-1" },
       "Selecciona la categoría de datos y el archivo correspondiente para validar sus columnas antes de importarlo."
     )
@@ -42,7 +39,7 @@ function renderImportCard() {
     }, [
       el("option", { value: "", disabled: "true", selected: "true" }, "— Seleccione el tipo de archivo crudo —"),
       ...Object.entries(FILE_METADATA).map(([key, meta]) =>
-        el("option", { value: key, id: `opt-${key}` }, `${meta.label} [${meta.filename}]`)
+        el("option", { value: key, id: `opt-${key}` }, meta.label)
       )
     ])
   ]);
@@ -150,7 +147,6 @@ async function validateSelectedFile(file, typeKey) {
       box.innerHTML = "";
 
       const statusTitle = el("div", { class: "font-semibold flex items-center gap-1.5" }, [
-        el("span", { class: "text-base" }, "🛑"),
         el("span", { style: "color: var(--status-critical)" }, "Error: Archivo duplicado"),
       ]);
 
@@ -196,7 +192,6 @@ async function validateSelectedFile(file, typeKey) {
       box.style.backgroundColor = "var(--status-ok-bg)";
 
       const statusTitle = el("div", { class: "font-semibold flex items-center gap-1.5" }, [
-        el("span", { class: "text-base" }, "✓"),
         el("span", { style: "color: var(--status-ok)" }, `Estructura válida para "${meta.label}"`),
         el("span", { class: "text-slate-500 font-normal ml-2" }, `(${parsed.columns.length} columnas detectadas)`)
       ]);
@@ -209,7 +204,6 @@ async function validateSelectedFile(file, typeKey) {
 
       if (isAlreadySavedHere) {
         const alreadyNotice = el("div", { class: "mt-1.5 text-emerald-800 font-medium flex items-center gap-1" }, [
-          el("span", {}, "ℹ️"),
           `Este archivo ya se encuentra confirmado para esta casilla (asignado a las ${assignedFiles[typeKey].assignedAt}).`
         ]);
         box.append(alreadyNotice);
@@ -224,7 +218,6 @@ async function validateSelectedFile(file, typeKey) {
       box.style.backgroundColor = "var(--status-warning-bg)";
 
       const statusTitle = el("div", { class: "font-semibold flex items-center gap-1.5" }, [
-        el("span", { class: "text-base" }, "⚠️"),
         el("span", { style: "color: var(--status-warning)" }, `Conflicto de columnas para "${meta.label}"`),
         el("span", { class: "text-slate-600 font-normal ml-2" }, "(Archivo equivocado)")
       ]);
