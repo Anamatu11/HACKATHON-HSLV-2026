@@ -8,7 +8,31 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
+  <!-- Preferir la versión local si existe; si no, usar CDN como respaldo para garantizar los estilos -->
   <link rel="stylesheet" href="css/tailwind.min.css" />
+  <script>
+    // Carga el CDN de Tailwind como respaldo si las utilidades no están aplicadas (evita fallos al abrir por file:// o si el archivo local está vacío)
+    (function(){
+      try {
+        const test = document.createElement('div');
+        test.className = 'sm:grid-cols-2';
+        document.documentElement.appendChild(test);
+        const applied = getComputedStyle(test).display !== 'block';
+        document.documentElement.removeChild(test);
+        if (!applied) {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.tailwindcss.com';
+          s.defer = true;
+          document.head.appendChild(s);
+        }
+      } catch (e) {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.tailwindcss.com';
+        s.defer = true;
+        document.head.appendChild(s);
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="css/styles.css?v=2026.2" />
   <script src="js/chart.umd.min.js"></script>
   <script>
