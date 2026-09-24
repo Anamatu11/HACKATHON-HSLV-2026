@@ -4,6 +4,8 @@ MVP para el **Hospital Susana López de Valencia** (Popayán) desarrollado en el
 Directivos y jefes de servicio preguntan en lenguaje natural sobre la operación del hospital y reciben
 **respuesta + tabla/gráfico + recomendación**, junto con un **dashboard de KPIs** y **alertas automáticas**.
 
+🌐 **Demo en línea:** <https://hackathon2026fuphslv-production.up.railway.app> (desplegado en Railway)
+
 ## El reto
 
 El hospital atiende ~500 pacientes diarios, pero la información de camas, tiempos de espera, quirófanos,
@@ -48,8 +50,8 @@ python -m pytest -q
 | `AUTH_USERNAME` | Usuario del panel (acepta también `usuario@hosusana.gov.co`) | `admin` |
 | `AUTH_PASSWORD` | Contraseña del panel | `hslv2026` (**solo demo**, cámbiela) |
 | `AUTH_SECRET` | Clave para firmar los tokens JWT (32+ caracteres aleatorios) | se genera al arrancar |
-
 | `ACCESS_PATH` | Archivo de usuarios y matriz de permisos | `data/access.json` |
+| `AUDIT_PATH` | Bitácora de auditoría de consultas e informes | `data/audit.jsonl` |
 
 Sin `AUTH_SECRET`, los tokens dejan de valer al reiniciar el servidor (hay que volver a iniciar sesión).
 
@@ -76,6 +78,35 @@ controles de seguridad aplicados, huella SHA-256 del resultado, integridad de la
   Cada consulta (respondida o rechazada) y cada descarga queda registrada, encadenada con SHA-256: si alguien edita
   o borra una línea, el siguiente informe muestra la alerta "la bitácora fue modificada".
 
+## Despliegue en Railway
+
+La app corre en Railway con el [Dockerfile](Dockerfile). La base de datos (~290 MB) y los `.txt` crudos **no están
+en GitHub** (son datos del hospital y superan los límites de tamaño), así que se despliega desde un PC con los datos
+usando Railway CLI. La imagen regenera `data/hospital.db` con el ETL durante el build.
+
+```powershell
+# Requisitos: Node.js y los 7 .txt crudos en DATOS/
+npm i -g @railway/cli
+railway login
+railway link                      # elegir el proyecto Hackathon2026FupHslv (o `railway init` para uno nuevo)
+
+python deploy/pack_raw.py         # comprime DATOS/*.txt en deploy/raw/*.txt.gz (~21 MB; ignorado en git)
+railway up --no-gitignore         # sube el código + deploy/raw/ y construye la imagen
+```
+
+- **`--no-gitignore` es obligatorio:** sin él no se sube `deploy/raw/`. Lo que no debe subirse (`.env`, `.venv`,
+  `DATOS/`, `data/`, tests) está en [.railwayignore](.railwayignore). `railway up` admite ~40 MB por subida; por eso
+  se suben los crudos comprimidos y no la base de datos.
+- **Variables** (en Railway: servicio → *Variables*): `LLM_PROVIDER`, `ANTHROPIC_API_KEY` u `OPENAI_API_KEY`,
+  `AUTH_PASSWORD` (distinta a la de demo) y `AUTH_SECRET`. Railway redespliega al guardarlas. No hace falta `PORT`:
+  Railway lo asigna y el contenedor lo usa.
+- **URL pública:** servicio → *Settings → Networking → Generate Domain* (o `railway domain`).
+- **Verificar:** `https://<dominio>/api/health` debe responder `{"status":"ok","db":true,...}`.
+- **Actualizar:** los cambios de código no se despliegan solos; repetir `railway up --no-gitignore` desde `main`
+  actualizado. Si cambian el ETL o los crudos, correr antes `python deploy/pack_raw.py`.
+- **Estado efímero:** `data/access.json` (usuarios y permisos) y `data/audit.jsonl` (bitácora) se reinician en cada
+  redespliegue. Para conservarlos, montar un volumen de Railway y apuntar `ACCESS_PATH`/`AUDIT_PATH` a él.
+
 ## Documentación
 
 | Documento | Contenido |
@@ -87,7 +118,8 @@ controles de seguridad aplicados, huella SHA-256 del resultado, integridad de la
 
 ## Tecnologías
 
-Python 3.11+ · pandas · SQLite · FastAPI · Anthropic / OpenAI · HTML + Tailwind · Chart.js · GitHub Projects
+Python 3.11+ · pandas · SQLite · FastAPI · Anthropic / OpenAI · PyJWT · reportlab (PDF) · HTML + Tailwind ·
+Chart.js · Docker · Railway · GitHub Projects
 
 ## Preguntas de la demo
 
