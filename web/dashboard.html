@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/tailwind.min.css" />
+  <link rel="stylesheet" href="css/styles.css?v=2026.2" />
+  <script src="js/chart.umd.min.js"></script>
   <script>
     // Sin sesión no se muestra nada del panel
     if (!sessionStorage.getItem("hslv_token") && !localStorage.getItem("hslv_token")) {
@@ -63,6 +63,27 @@
     <section id="tab-summary" role="tabpanel" class="space-y-6">
       <div id="kpi-cards" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
       <div id="top-alerts" class="space-y-2"></div>
+      <!-- Panel de importación y validación de archivos crudos del HIS -->
+      <div id="import-panel-container"></div>
+
+      <!-- Listado dinámico de pacientes/ingresos (sin datos sensibles) -->
+      <article class="card p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="font-display font-semibold text-base" style="color: var(--brand-navy)">
+              Listado de admisiones recientes (sin datos sensibles)
+            </h3>
+            <p class="text-xs text-slate-500">Últimos ingresos hospitalarios clasificados por capítulo CIE-10, vía de ingreso y estancia.</p>
+          </div>
+          <div class="flex gap-2">
+            <input id="adm-search" type="search" placeholder="Buscar por servicio o capítulo…"
+                   class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white w-56 max-w-full" />
+          </div>
+        </div>
+        <p id="adm-count" class="text-xs text-slate-500"></p>
+        <div class="overflow-auto max-h-80 border border-slate-100 rounded-lg" id="adm-table"></div>
+      </article>
+
       <div id="summary-charts" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
     </section>
 
@@ -196,6 +217,6 @@
     </div>
   </footer>
 
-  <script type="module" src="js/dashboard.js"></script>
+  <script type="module" src="js/dashboard.js?v=2026.2"></script>
 </body>
 </html>

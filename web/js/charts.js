@@ -65,11 +65,17 @@ const shadePlugin = {
     c.restore();
   },
 };
-Chart.register(thresholdPlugin, shadePlugin);
+if (typeof Chart !== "undefined") {
+  Chart.register(thresholdPlugin, shadePlugin);
+}
 
 const registry = new Map();
 
 function mount(canvas, config) {
+  if (typeof Chart === "undefined") {
+    console.warn("Chart.js no está disponible en este momento.");
+    return null;
+  }
   registry.get(canvas)?.destroy();
   const chart = new Chart(canvas, config);
   registry.set(canvas, chart);
@@ -139,6 +145,27 @@ export function barChart(canvas, { labels, datasets, horizontal = false, unit = 
   });
 }
 
+/** Gráfico tipo Dona / Pastel. labels: [...], data: [...] */
+export function doughnutChart(canvas, { labels, data, unit = "" }) {
+  const colors = labels.map((_, i) => SERIES[i % SERIES.length]);
+  return mount(canvas, {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: "#ffffff" }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: true, position: "right", labels: { boxWidth: 12, color: TEXT_SECONDARY } },
+        tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${fmt(ctx.raw)}${unit}` } },
+      },
+    },
+  });
+}
+
 /** Gráfico para una respuesta del agente: {chart: {type, x, y}, columns, rows}. Devuelve null si no aplica. */
 export function chartFromAnswer(canvas, { chart, columns, rows }) {
   if (!chart || chart.type === "none" || !rows.length) return null;
@@ -149,6 +176,7 @@ export function chartFromAnswer(canvas, { chart, columns, rows }) {
   const data = rows.map((r) => r[yi]);
   const label = columnLabel(chart.y);
   if (chart.type === "line") return lineChart(canvas, { labels, datasets: [{ label, data }] });
+  if (chart.type === "pie" || chart.type === "doughnut") return doughnutChart(canvas, { labels, data });
   const horizontal = labels.some((l) => String(l).length > 12) || labels.length > 8;
   return barChart(canvas, { labels, datasets: [{ label, data }], horizontal });
 }

@@ -1,7 +1,8 @@
 // Panel principal: tarjetas KPI, gráficos, alertas, inventario y pestañas.
 import { getAlerts, getKpis, getUser, logout } from "./api.js";
-import { barChart, chartCard, lineChart, SERIES } from "./charts.js";
+import { barChart, chartCard, doughnutChart, lineChart, SERIES } from "./charts.js";
 import { initChat } from "./chat.js";
+import { initImportPanel } from "./import.js";
 import { initOccupancy } from "./occupancy.js";
 import { el, fmt, fmtDate, statusBadge } from "./ui.js";
 
@@ -23,6 +24,7 @@ async function init() {
   $("logout").addEventListener("click", logout);
   setupTabs();
   initChat();
+  initImportPanel();
   try {
     const [kpis, alerts] = await Promise.all([getKpis(), getAlerts()]);
     state.kpis = kpis;
@@ -33,6 +35,7 @@ async function init() {
     renderSummaryCharts(kpis.series);
     renderAlertsTab();
     setupMedsTable(kpis.medications_table);
+    if (kpis.admissions_table) setupAdmissionsTable(kpis.admissions_table);
   } catch (e) {
     $("load-error").textContent = `No se pudieron cargar los indicadores: ${e.message}`;
     $("load-error").classList.remove("hidden");
@@ -95,9 +98,11 @@ function renderSummaryCharts(s) {
     threshold: { value: s.occupancy_by_service.threshold, label: `${s.occupancy_by_service.threshold}%` },
   });
 
-  barChart(chartCard(box, { title: "Ingresos por servicio este mes", tall: true, subtitle: "Mes en curso hasta hoy" }), {
+  doughnutChart(chartCard(box, { title: "Distribución de ingresos por servicio", tall: true,
+                                 subtitle: "Distribución (gráfico de pastel/dona) del mes en curso" }), {
     labels: s.admissions_by_service.labels,
-    datasets: [{ label: "Ingresos", data: s.admissions_by_service.data }], horizontal: true,
+    data: s.admissions_by_service.data,
+    unit: " pacientes",
   });
 
   lineChart(chartCard(box, { title: "Ingresos diarios y tendencia", wide: true,
@@ -215,3 +220,60 @@ function setupMedsTable(rows) {
   status.addEventListener("change", render);
   render();
 }
+
+// --- Listado dinámico de pacientes / admisiones (sin datos sensibles) --------------
+
+const CHAPTER_DESCRIPTIONS = {
+  A: "Infecciosas", B: "Infecciosas", C: "Oncológicas", D: "Hematológicas",
+  E: "Endocrinas", F: "Salud mental", G: "Neurológicas", H: "Ojo y oído",
+  I: "Cardiovasculares", J: "Respiratorias", K: "Digestivas", L: "Piel",
+  M: "Osteomusculares", N: "Genitourinarias", O: "Obstétricas", P: "Perinatales",
+  Q: "Malformaciones", R: "Síntomas generales", S: "Traumatismos", T: "Intoxicaciones / Traumas",
+  Z: "Controles y otros",
+};
+
+function setupAdmissionsTable(rows) {
+  const search = $("adm-search");
+  if (!search || !rows) return;
+  const render = () => {
+    const q = search.value.trim().toLowerCase();
+    const filtered = rows.filter((r) => {
+      if (!q) return true;
+      const chDesc = (CHAPTER_DESCRIPTIONS[r.diagnosis_chapter] || "").toLowerCase();
+      return (r.service && r.service.toLowerCase().includes(q))
+        || (r.sub_service && r.sub_service.toLowerCase().includes(q))
+        || (r.diagnosis_chapter && r.diagnosis_chapter.toLowerCase().includes(q))
+        || (r.sex && r.sex.toLowerCase().includes(q))
+        || chDesc.includes(q);
+    });
+    $("adm-count").textContent = `Mostrando ${fmt(filtered.length)} de ${fmt(rows.length)} ingresos recientes`;
+    $("adm-table").replaceChildren(el("table", { class: "data-table w-full text-sm" }, [
+      el("thead", {}, el("tr", {}, [
+        el("th", { scope: "col" }, "Fecha ingreso"),
+        el("th", { scope: "col" }, "Servicio"),
+        el("th", { scope: "col" }, "Subservicio"),
+        el("th", { scope: "col" }, "Vía"),
+        el("th", { scope: "col" }, "Sexo"),
+        el("th", { scope: "col" }, "Edad"),
+        el("th", { scope: "col" }, "Capítulo CIE-10"),
+        el("th", { scope: "col", class: "num" }, "Estancia (días)"),
+      ])),
+      el("tbody", {}, filtered.map((r) => el("tr", {}, [
+        el("td", { class: "tabular text-xs" }, r.admission_at),
+        el("td", { class: "font-medium" }, r.service),
+        el("td", { class: "text-slate-500 text-xs" }, r.sub_service || "—"),
+        el("td", {}, r.admission_route || "—"),
+        el("td", {}, r.sex || "—"),
+        el("td", {}, r.age_group || "—"),
+        el("td", {}, [
+          el("span", { class: "font-mono font-semibold mr-1" }, r.diagnosis_chapter || "—"),
+          el("span", { class: "text-xs text-slate-500" }, CHAPTER_DESCRIPTIONS[r.diagnosis_chapter] ? `(${CHAPTER_DESCRIPTIONS[r.diagnosis_chapter]})` : ""),
+        ]),
+        el("td", { class: "num font-semibold" }, r.length_of_stay_days != null ? fmt(r.length_of_stay_days) : "—"),
+      ]))),
+    ]));
+  };
+  search.addEventListener("input", render);
+  render();
+}
+
